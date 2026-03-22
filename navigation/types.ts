@@ -1,19 +1,18 @@
 /**
- * Kullanıcı rolleri - DerdimET uygulaması
+ * Backend {@code UserRole} ile aynı değerler
  */
-export type UserRole = 'admin' | 'hayvan_satici' | 'et_alici';
+export type UserRole = 'ADMIN' | 'ANIMAL_SELLER' | 'MEAT_BUYER';
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
-  admin: 'Admin',
-  hayvan_satici: 'Hayvan Satıcı',
-  et_alici: 'Et Alıcı',
+  ADMIN: 'Yönetici',
+  ANIMAL_SELLER: 'Hayvan satıcısı',
+  MEAT_BUYER: 'Et alıcısı',
 };
 
-/**
- * Stack ve Tab route isimleri
- */
 export const ROUTES = {
-  ROLE_SELECT: '/',
+  SPLASH: '/',
+  LOGIN: '/login',
+  REGISTER: '/register',
   TABS: '/(tabs)',
   HOME: '/(tabs)',
   EXPLORE: '/(tabs)/explore',

@@ -8,11 +8,11 @@ function HomeByRole() {
   const { userRole } = useAuth();
 
   switch (userRole) {
-    case 'admin':
+    case 'ADMIN':
       return <AdminHomeScreen />;
-    case 'hayvan_satici':
+    case 'ANIMAL_SELLER':
       return <SellerHomeScreen />;
-    case 'et_alici':
+    case 'MEAT_BUYER':
       return <BuyerHomeScreen />;
     default:
       return <AdminHomeScreen />;
