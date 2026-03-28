@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { AnimalCategoryFilterProvider } from '@/contexts/AnimalCategoryFilterContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -11,6 +12,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <AnimalCategoryFilterProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack
           screenOptions={{
@@ -27,6 +29,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
+      </AnimalCategoryFilterProvider>
     </AuthProvider>
   );
 }

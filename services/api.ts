@@ -1,10 +1,10 @@
 /**
- * Backend API (web + mobil ortak).
- * - EXPO_PUBLIC_API_URL tanımlıysa o kullanılır.
- * - __DEV__ iken: Android emülatör → bilgisayardaki localhost için http://10.0.2.2:8080
+ * Backend API (web + mobil ortak Spring Boot, aynı MySQL).
+ * - EXPO_PUBLIC_API_URL tanımlıysa o kullanılır (.env.example’a bakın).
+ * - __DEV__ iken: Android emülatör → http://10.0.2.2:8080
  * - __DEV__ iken: iOS simülatör → http://localhost:8080
  * - Üretim: https://api.derdimet.com
- * Fiziksel Android telefon: EXPO_PUBLIC_API_URL=http://BILGISAYAR_LAN_IP:8080
+ * Fiziksel cihaz: EXPO_PUBLIC_API_URL=http://<bilgisayar-LAN-IP>:8080 (Spring server.address=0.0.0.0)
  */
 
 import { Platform } from 'react-native';
