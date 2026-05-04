@@ -1,0 +1,5 @@
+# Android Studio / Gradle: SDK yolu (bu dosyayi kopyalayip local.properties yapin)
+# macOS ornek:
+# sdk.dir=/Users/<kullanici>/Library/Android/sdk
+
+sdk.dir=
