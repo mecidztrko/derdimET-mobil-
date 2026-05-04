@@ -10,7 +10,7 @@ kotlin {
     androidTarget {
         compilations.all {
             kotlinOptions {
-                jvmTarget = "1.8"
+                jvmTarget = "11"
             }
         }
     }
@@ -70,7 +70,11 @@ kotlin {
 
 android {
     namespace = "com.derdimet.mobil"
-    compileSdk = 34
+    compileSdk = 35
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
     defaultConfig {
         minSdk = 24
     }

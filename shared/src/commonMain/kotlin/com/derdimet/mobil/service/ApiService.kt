@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
 class ApiService(
     private val baseUrl: String = "https://api.derdimet.com"
 ) {
-    @PublishedApi internal var authToken: String? = null
+    @PublishedApi internal var currentAuthToken: String? = null
     @PublishedApi internal val client = HttpClient {
         install(ContentNegotiation) {
             json(Json {
@@ -32,11 +32,11 @@ class ApiService(
     }
 
     fun setAuthToken(token: String?) {
-        authToken = token
+        currentAuthToken = token
     }
 
     @PublishedApi internal fun HttpRequestBuilder.auth() {
-        authToken?.let {
+        currentAuthToken?.let {
             header(HttpHeaders.Authorization, "Bearer $it")
         }
     }
@@ -47,7 +47,7 @@ class ApiService(
         }
         
         val result = response.body<LoginResponse>()
-        authToken = result.token
+        currentAuthToken = result.token
         
         return ApiResponse(data = result, success = true)
     }

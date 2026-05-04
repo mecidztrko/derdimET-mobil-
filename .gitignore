@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# Android SDK (kullanici makinesine ozel)
+local.properties
+
 # typescript
 *.tsbuildinfo
 
