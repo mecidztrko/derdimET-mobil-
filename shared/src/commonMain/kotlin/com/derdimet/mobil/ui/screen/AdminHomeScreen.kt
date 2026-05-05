@@ -6,7 +6,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -14,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.derdimet.mobil.model.AnimalCategory
+import com.derdimet.mobil.ui.components.DashboardInlineMessage
+import com.derdimet.mobil.ui.components.StatusTone
 import com.derdimet.mobil.viewmodel.AdminViewModel
 
 @Composable
@@ -33,33 +34,29 @@ fun AdminHomeScreen(viewModel: AdminViewModel) {
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(text = "Yönetici", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(text = "Yönetici Paneli", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text(
             text = "Hayvan alış ilanı oluştur (satıcılar görecek).",
             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
             fontSize = 15.sp,
             color = Color.Gray
         )
-
-        error?.let {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                color = Color(0xFFDC2626).copy(alpha = 0.12f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text(text = it, color = Color(0xFFB91C1C), modifier = Modifier.padding(12.dp))
-            }
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            color = Color(0xFFEEF2FF),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "İpucu: Net başlık ve adet bilgisi, satıcılardan daha hızlı teklif almanızı sağlar.",
+                modifier = Modifier.padding(12.dp),
+                color = Color(0xFF1D4ED8),
+                fontSize = 13.sp
+            )
         }
 
-        message?.let {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                color = Color(0xFF16A34A).copy(alpha = 0.15f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text(text = it, color = Color(0xFF15803D), modifier = Modifier.padding(12.dp))
-            }
-        }
+        error?.let { DashboardInlineMessage(text = it, tone = StatusTone.Danger, modifier = Modifier.padding(bottom = 8.dp)) }
+
+        message?.let { DashboardInlineMessage(text = it, tone = StatusTone.Success, modifier = Modifier.padding(bottom = 8.dp)) }
 
         Label("Başlık *")
         OutlinedTextField(

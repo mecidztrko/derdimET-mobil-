@@ -1,9 +1,29 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.jetbrainsCompose)
     alias(libs.plugins.kotlinCompose)
 }
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) {
+        f.inputStream().use { load(it) }
+    }
+}
+
+val debugApiBaseUrl = (
+    localProps.getProperty("MOBILE_DEBUG_API_BASE_URL")
+        ?: (findProperty("MOBILE_DEBUG_API_BASE_URL") as String?)
+    )
+    ?: "http://10.0.2.2:8080"
+val releaseApiBaseUrl = (
+    localProps.getProperty("MOBILE_RELEASE_API_BASE_URL")
+        ?: (findProperty("MOBILE_RELEASE_API_BASE_URL") as String?)
+    )
+    ?: "https://api.derdimet.com"
 
 android {
     namespace = "com.derdimet.mobil.app"
@@ -30,11 +50,11 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         release {
             isMinifyEnabled = false
-            buildConfigField("String", "API_BASE_URL", "\"https://api.derdimet.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
         }
     }
 }

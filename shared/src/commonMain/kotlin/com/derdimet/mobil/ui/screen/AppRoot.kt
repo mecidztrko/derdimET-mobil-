@@ -52,7 +52,7 @@ fun AppRoot(
 
     when (currentScreen) {
         AppScreen.SPLASH -> {
-            Text("Yukleniyor...")
+            Text("Yükleniyor...")
         }
         AppScreen.LOGIN -> {
             LoginScreen(

@@ -12,6 +12,8 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class ApiService(
     private val baseUrl: String = "https://api.derdimet.com"
@@ -45,11 +47,25 @@ class ApiService(
         val response: HttpResponse = client.post("/api/auth/login") {
             setBody(mapOf("email" to email, "password" to password))
         }
-        
-        val result = response.body<LoginResponse>()
-        currentAuthToken = result.token
-        
-        return ApiResponse(data = result, success = true)
+
+        if (response.status.isSuccess()) {
+            val result = response.body<LoginResponse>()
+            currentAuthToken = result.token
+            return ApiResponse(data = result, success = true)
+        }
+
+        val raw = response.bodyAsText()
+        val message = try {
+            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content
+                ?: "API Hatası: ${response.status}"
+        } catch (_: Exception) {
+            "API Hatası: ${response.status}"
+        }
+        return ApiResponse(
+            data = LoginResponse(token = "", tokenType = "Bearer"),
+            success = false,
+            message = message
+        )
     }
 
     suspend fun register(payload: Map<String, Any?>): ApiResponse<Unit> {

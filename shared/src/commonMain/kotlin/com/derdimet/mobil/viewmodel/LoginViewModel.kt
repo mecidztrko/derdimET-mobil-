@@ -59,13 +59,19 @@ class LoginViewModel(
                     preferencesRepository.setRememberPreference(_rememberMe.value, _email.value.trim())
                     val user = authRepository.fetchCurrentUser()
                     if (user != null) {
+                        if (user.role == UserRole.ADMIN) {
+                            authRepository.logout()
+                            _error.value = "Yönetici hesabı mobil uygulamada desteklenmiyor. Lütfen web panelini kullanın."
+                            return@launch
+                        }
                         preferencesRepository.persistAuthProfileSnapshot(user.role.name, user.accountType)
                         onSuccess(user.role)
                     } else {
                         _error.value = "Profil bilgisi alınamadı"
                     }
                 } else {
-                    _error.value = "Giriş başarısız. Lütfen bilgilerinizi kontrol edin."
+                    _error.value = authRepository.consumeLastLoginError()
+                        ?: "Giriş başarısız. Lütfen bilgilerinizi kontrol edin."
                 }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Bir hata oluştu"

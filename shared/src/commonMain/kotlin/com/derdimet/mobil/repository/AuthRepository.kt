@@ -3,6 +3,10 @@ package com.derdimet.mobil.repository
 import com.derdimet.mobil.service.ApiService
 import com.derdimet.mobil.model.AuthUser
 import com.derdimet.mobil.model.toAuthUser
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.ServerResponseException
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.utils.io.errors.IOException
 
 interface AuthStorage {
     fun getToken(): String?
@@ -15,8 +19,16 @@ class AuthRepository(
     private val authStorage: AuthStorage
 ) {
     private val KEY = "derdimet_auth_token"
+    private var lastLoginError: String? = null
+
+    fun consumeLastLoginError(): String? {
+        val value = lastLoginError
+        lastLoginError = null
+        return value
+    }
 
     suspend fun login(email: String, password: String): Boolean {
+        lastLoginError = null
         return try {
             val response = apiService.login(email, password)
             if (response.success) {
@@ -26,9 +38,27 @@ class AuthRepository(
                 }
                 true
             } else {
+                lastLoginError = response.message ?: "Giriş başarısız"
                 false
             }
+        } catch (e: ClientRequestException) {
+            lastLoginError = if (e.response.status.value == 401) {
+                "E-posta veya şifre yanlış."
+            } else {
+                "İstek hatası: ${e.response.status.value}"
+            }
+            false
+        } catch (e: ServerResponseException) {
+            lastLoginError = "Sunucu hatası: ${e.response.status.value}"
+            false
+        } catch (e: HttpRequestTimeoutException) {
+            lastLoginError = "Sunucuya zamanında ulaşılamadı."
+            false
+        } catch (e: IOException) {
+            lastLoginError = "Sunucuya bağlanılamadı. API adresini kontrol edin."
+            false
         } catch (e: Exception) {
+            lastLoginError = e.message ?: "Bir hata oluştu"
             false
         }
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -13,9 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.ui.components.AuthGradientButton
@@ -23,6 +27,10 @@ import com.derdimet.mobil.ui.components.AuthTextField
 import com.derdimet.mobil.ui.theme.AuthTheme
 import com.derdimet.mobil.model.UserRole
 import com.derdimet.mobil.viewmodel.LoginViewModel
+import derdimet_mobil.shared.generated.resources.Res
+import derdimet_mobil.shared.generated.resources.hero_bg
+import org.jetbrains.compose.resources.painterResource
+import androidx.compose.foundation.Image
 
 @Composable
 fun LoginScreen(
@@ -37,8 +45,25 @@ fun LoginScreen(
     val error by viewModel.error.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Arka plan resmi buraya gelecek (Image bileşeni ile)
-        // Image(painter = painterResource("background.jpg"), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Image(
+            painter = painterResource(Res.drawable.hero_bg),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.72f),
+                            Color(0xFFF0F9FF).copy(alpha = 0.62f),
+                            Color.White.copy(alpha = 0.78f)
+                        )
+                    )
+                )
+        )
         
         Column(
             modifier = Modifier

@@ -139,17 +139,32 @@ fun RegisterScreen(
 }
 
 @Composable
-fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+fun Chip(label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    val bgColor = when {
+        !enabled -> Color.Gray.copy(alpha = 0.08f)
+        selected -> AuthTheme.Accent.copy(alpha = 0.12f)
+        else -> Color.White.copy(alpha = 0.85f)
+    }
+    val borderColor = when {
+        !enabled -> Color.Gray.copy(alpha = 0.25f)
+        selected -> AuthTheme.Accent
+        else -> Color.Gray.copy(alpha = 0.45f)
+    }
+    val textColor = when {
+        !enabled -> AuthTheme.TextMuted
+        selected -> AuthTheme.Accent
+        else -> AuthTheme.Text
+    }
     Box(
         modifier = Modifier
             .padding(end = 10.dp, bottom = 10.dp)
             .clip(RoundedCornerShape(AuthTheme.RadiusSm))
-            .background(if (selected) AuthTheme.Accent.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.85f))
-            .border(1.5.dp, if (selected) AuthTheme.Accent else Color.Gray.copy(alpha = 0.45f), RoundedCornerShape(AuthTheme.RadiusSm))
-            .clickable { onClick() }
+            .background(bgColor)
+            .border(1.5.dp, borderColor, RoundedCornerShape(AuthTheme.RadiusSm))
+            .clickable(enabled = enabled) { onClick() }
             .padding(vertical = 10.dp, horizontal = 16.dp)
     ) {
-        Text(text = label, color = if (selected) AuthTheme.Accent else AuthTheme.Text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(text = label, color = textColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
 

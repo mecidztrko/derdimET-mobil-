@@ -25,6 +25,19 @@ Projede `.idea/gradle.xml` Gradle JVM icin `jbr-17` onculugunde ayarlandi; sende
 Debug API tabani: `http://10.0.2.2:8080` (emulatorden makinedeki Spring).  
 Release: `https://api.derdimet.com` (`composeApp/build.gradle.kts` icinde `buildConfigField`).
 
+`derdimET` backend varsayilanlari:
+- `server.port=8080`
+- `server.address=0.0.0.0`
+
+Gerekirse `local.properties` ile mobil URL override edebilirsin:
+
+```properties
+MOBILE_DEBUG_API_BASE_URL=http://10.0.2.2:8080
+MOBILE_RELEASE_API_BASE_URL=https://api.derdimet.com
+```
+
+Gercek cihazda debug icin `10.0.2.2` yerine bilgisayarinin LAN IP'sini kullan.
+
 ## Web (Wasm) calistirma
 
 ```bash
