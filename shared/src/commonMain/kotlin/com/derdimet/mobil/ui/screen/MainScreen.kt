@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +32,15 @@ import com.derdimet.mobil.viewmodel.SellerViewModel
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
     object Home : Tab("home", "Ana Sayfa", Icons.Default.Home)
     object Explore : Tab("explore", "Keşfet", Icons.Default.Search)
-    object Profile : Tab("profile", "Profil", Icons.Default.Person)
+
+    object BuyerProfile : Tab("buyer_profile", "Profil", Icons.Default.Person)
+    object BuyerSearch : Tab("buyer_search", "Arama", Icons.Default.Search)
+    object BuyerOffers : Tab("buyer_offers", "Tekliflerim", Icons.Default.Campaign)
+
+    object SellerProfile : Tab("seller_profile", "Profil", Icons.Default.Person)
+    object SellerSearch : Tab("seller_search", "Arama", Icons.Default.Search)
+    object SellerOffers : Tab("seller_offers", "Tekliflerim", Icons.Default.Campaign)
+    object SellerCreate : Tab("seller_create", "İlan ver", Icons.Default.AddCircle)
 }
 
 @Composable
@@ -41,15 +50,25 @@ fun MainScreen(
     marketService: MarketService,
     onLogout: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf<Tab>(Tab.Home) }
+    val tabsForRole = remember(userRole) {
+        when (userRole) {
+            UserRole.MEAT_BUYER -> listOf(Tab.BuyerProfile, Tab.BuyerSearch, Tab.BuyerOffers)
+            UserRole.ANIMAL_SELLER -> listOf(Tab.SellerProfile, Tab.SellerSearch, Tab.SellerOffers, Tab.SellerCreate)
+            UserRole.ADMIN -> listOf(Tab.Home, Tab.Explore, Tab.SellerProfile)
+            UserRole.SLAUGHTERHOUSE -> listOf(Tab.Home, Tab.Explore, Tab.SellerProfile)
+        }
+    }
+
+    var selectedTab by remember(userRole) {
+        mutableStateOf(tabsForRole.first())
+    }
     var selectedFilter by remember { mutableStateOf(preferencesRepository.getAnimalCategoryFilter()) }
     val sellerViewModel = remember { SellerViewModel(marketService) }
 
     Scaffold(
         bottomBar = {
             NavigationBar {
-                val tabs = listOf(Tab.Home, Tab.Explore, Tab.Profile)
-                tabs.forEach { tab ->
+                tabsForRole.forEach { tab ->
                     NavigationBarItem(
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
                         label = { Text(tab.label) },
@@ -65,12 +84,17 @@ fun MainScreen(
                 title = when (userRole) {
                     UserRole.ADMIN -> "Yönetici"
                     UserRole.ANIMAL_SELLER -> "Satıcı Paneli"
-                    UserRole.MEAT_BUYER -> "Et Alıcı Paneli"
+                    UserRole.MEAT_BUYER -> "Alıcı"
                 },
                 subtitle = when (selectedTab) {
                     Tab.Home -> "Günlük operasyon özetiniz"
                     Tab.Explore -> "Modülleri keşfedin"
-                    Tab.Profile -> "Tercihler ve hesap işlemleri"
+                    Tab.BuyerProfile, Tab.SellerProfile -> "Hesap ve tercihler"
+                    Tab.BuyerSearch -> "İlanları keşfet ve filtrele"
+                    Tab.BuyerOffers -> "Tekliflerin ve mesajların"
+                    Tab.SellerSearch -> "Kesimhane ilanlarını incele"
+                    Tab.SellerOffers -> "Tekliflerin ve mesajların"
+                    Tab.SellerCreate -> "Yeni hayvan ilanı oluştur"
                 }
             )
             if (userRole == UserRole.ADMIN) {
@@ -83,12 +107,19 @@ fun MainScreen(
                         selectedFilter = selectedFilter
                     )
                     Tab.Explore -> ExploreScreen(userRole = userRole)
-                    Tab.Profile -> ProfileScreen(
+                    Tab.SellerProfile -> ProfileScreen(
                         preferencesRepository = preferencesRepository,
                         selectedFilter = selectedFilter,
                         onFilterChanged = { selectedFilter = it },
                         onLogout = onLogout
                     )
+                    Tab.BuyerProfile -> BuyerProfileScreen(marketService = marketService, onLogout = onLogout)
+                    Tab.BuyerSearch -> BuyerSearchScreen(marketService = marketService)
+                    Tab.BuyerOffers -> BuyerMyOffersScreen(marketService = marketService)
+                    Tab.SellerSearch -> SellerSearchScreen(marketService = marketService)
+                    Tab.SellerOffers -> SellerOffersScreen(marketService = marketService)
+                    Tab.SellerCreate -> SellerCreateListingScreen()
+                    else -> Unit
                 }
             }
         }
