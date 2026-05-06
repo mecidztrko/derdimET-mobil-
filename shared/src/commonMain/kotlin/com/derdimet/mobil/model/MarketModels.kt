@@ -14,6 +14,8 @@ enum class AnimalCategory { KUCUKBAS, BUYUKBAS }
 @Serializable
 data class AnimalPurchaseRequestDto(
     val id: Int,
+    val slaughterhouseId: Long? = null,
+    val slaughterhouseName: String? = null,
     val title: String,
     val animalCategory: AnimalCategory? = null,
     val quantity: Int? = null,
@@ -114,6 +116,26 @@ data class BuyerPurchaseItemDto(
 )
 
 @Serializable
+data class FavoriteBuyerDto(
+    val buyerId: Long,
+    val buyerName: String? = null,
+    val buyerEmail: String? = null,
+    val createdAt: String,
+)
+
+@Serializable
+data class SellerSaleItemDto(
+    val offerId: Long,
+    val requestId: Long? = null,
+    val requestTitle: String? = null,
+    val slaughterhouseName: String? = null,
+    val pricePerKg: Double? = null,
+    val animalCount: Int? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+)
+
+@Serializable
 data class ConversationItemDto(
     val conversationId: Long,
     val otherUserId: Long,
@@ -135,4 +157,31 @@ data class MessageDto(
 @Serializable
 data class CreateMessagePayload(
     val text: String,
+)
+
+@Serializable
+data class SellerAnimalListingDto(
+    val id: Long,
+    val sellerId: Long? = null,
+    val sellerName: String? = null,
+    val category: AnimalCategory,
+    val type: String,
+    val ageMonths: Int? = null,
+    val quantity: Int,
+    val price: Double? = null,
+    val description: String? = null,
+    val imageUrls: String? = null,
+    val status: RequestStatus,
+    val createdAt: String,
+)
+
+@Serializable
+data class CreateSellerAnimalListingPayload(
+    val category: AnimalCategory,
+    val type: String,
+    val ageMonths: Int? = null,
+    val quantity: Int,
+    val price: Double? = null,
+    val description: String? = null,
+    val imageUrls: List<String>? = null,
 )

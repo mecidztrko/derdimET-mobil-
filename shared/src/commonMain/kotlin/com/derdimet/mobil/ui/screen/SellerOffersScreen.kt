@@ -37,6 +37,7 @@ fun SellerOffersScreen(
     var offers by remember { mutableStateOf<List<SellerAnimalOfferItemDto>>(emptyList()) }
     var conversations by remember { mutableStateOf<List<ConversationItemDto>>(emptyList()) }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
+    var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -46,6 +47,17 @@ fun SellerOffersScreen(
         if (resOffers.success) offers = resOffers.data ?: emptyList() else error = resOffers.message ?: "Teklifler alınamadı"
         if (resConvos.success) conversations = resConvos.data ?: emptyList() else error = error ?: (resConvos.message ?: "Mesajlar alınamadı")
         isLoading = false
+    }
+
+    LaunchedEffect(startChatWithUserId) {
+        val otherId = startChatWithUserId ?: return@LaunchedEffect
+        startChatWithUserId = null
+        val res = marketService.getOrCreateConversation(otherId)
+        if (res.success && res.data != null) {
+            selectedConversation = res.data
+        } else {
+            error = res.message ?: "Sohbet başlatılamadı"
+        }
     }
 
     val convo = selectedConversation
@@ -81,6 +93,20 @@ fun SellerOffersScreen(
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(text = o.request.title, fontWeight = FontWeight.SemiBold)
                             Text(text = "Fiyat: ${o.pricePerKg} ₺/kg • Durum: ${o.status}", color = Color.Gray, modifier = Modifier.padding(top = 6.dp))
+                            Text(
+                                text = "Kesimhane: ${o.request.slaughterhouseName ?: (o.request.slaughterhouseId ?: "-")}",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val otherId = o.request.slaughterhouseId
+                                    if (otherId != null) startChatWithUserId = otherId
+                                },
+                                modifier = Modifier.padding(top = 10.dp)
+                            ) {
+                                Text("Kesimhane ile sohbet")
+                            }
                         }
                     }
                 }

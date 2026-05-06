@@ -107,10 +107,8 @@ fun MainScreen(
                         selectedFilter = selectedFilter
                     )
                     Tab.Explore -> ExploreScreen(userRole = userRole)
-                    Tab.SellerProfile -> ProfileScreen(
-                        preferencesRepository = preferencesRepository,
-                        selectedFilter = selectedFilter,
-                        onFilterChanged = { selectedFilter = it },
+                    Tab.SellerProfile -> SellerProfileScreen(
+                        marketService = marketService,
                         onLogout = onLogout
                     )
                     Tab.BuyerProfile -> BuyerProfileScreen(marketService = marketService, onLogout = onLogout)
@@ -118,7 +116,7 @@ fun MainScreen(
                     Tab.BuyerOffers -> BuyerMyOffersScreen(marketService = marketService)
                     Tab.SellerSearch -> SellerSearchScreen(marketService = marketService)
                     Tab.SellerOffers -> SellerOffersScreen(marketService = marketService)
-                    Tab.SellerCreate -> SellerCreateListingScreen()
+                    Tab.SellerCreate -> SellerCreateListingScreen(marketService = marketService)
                     else -> Unit
                 }
             }

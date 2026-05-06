@@ -34,6 +34,22 @@ class MarketService(private val apiService: ApiService) {
         return apiService.get("/api/seller/animal-offers")
     }
 
+    suspend fun fetchSellerFavoriteBuyers(): ApiResponse<List<FavoriteBuyerDto>> {
+        return apiService.get("/api/seller/profile/favorites")
+    }
+
+    suspend fun addSellerFavoriteBuyer(buyerId: Long): ApiResponse<Unit> {
+        return apiService.post("/api/seller/profile/favorites/$buyerId", body = mapOf<String, String>())
+    }
+
+    suspend fun removeSellerFavoriteBuyer(buyerId: Long): ApiResponse<Unit> {
+        return apiService.delete("/api/seller/profile/favorites/$buyerId")
+    }
+
+    suspend fun fetchSellerSales(limit: Int = 10): ApiResponse<List<SellerSaleItemDto>> {
+        return apiService.get("/api/seller/profile/sales?limit=$limit")
+    }
+
     suspend fun fetchOpenMeatSaleRequests(): ApiResponse<List<MeatSaleRequestDto>> {
         return apiService.get("/api/buyer/meat-sale-requests")
     }
@@ -76,5 +92,13 @@ class MarketService(private val apiService: ApiService) {
 
     suspend fun sendMessage(conversationId: Long, text: String): ApiResponse<MessageDto> {
         return apiService.post("/api/conversations/$conversationId/messages", body = CreateMessagePayload(text = text))
+    }
+
+    suspend fun createSellerAnimalListing(payload: CreateSellerAnimalListingPayload): ApiResponse<SellerAnimalListingDto> {
+        return apiService.post("/api/seller/animal-listings", payload)
+    }
+
+    suspend fun fetchMySellerAnimalListings(): ApiResponse<List<SellerAnimalListingDto>> {
+        return apiService.get("/api/seller/animal-listings")
     }
 }
