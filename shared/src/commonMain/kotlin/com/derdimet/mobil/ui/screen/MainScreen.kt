@@ -41,6 +41,11 @@ sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
     object SellerSearch : Tab("seller_search", "Arama", Icons.Default.Search)
     object SellerOffers : Tab("seller_offers", "Tekliflerim", Icons.Default.Campaign)
     object SellerCreate : Tab("seller_create", "İlan ver", Icons.Default.AddCircle)
+
+    object SlaughterhouseProfile : Tab("sh_profile", "Profil", Icons.Default.Person)
+    object SlaughterhouseSearch : Tab("sh_search", "Arama", Icons.Default.Search)
+    object SlaughterhouseOffers : Tab("sh_offers", "Tekliflerim", Icons.Default.Campaign)
+    object SlaughterhouseCreate : Tab("sh_create", "İlan ver", Icons.Default.AddCircle)
 }
 
 @Composable
@@ -55,7 +60,12 @@ fun MainScreen(
             UserRole.MEAT_BUYER -> listOf(Tab.BuyerProfile, Tab.BuyerSearch, Tab.BuyerOffers)
             UserRole.ANIMAL_SELLER -> listOf(Tab.SellerProfile, Tab.SellerSearch, Tab.SellerOffers, Tab.SellerCreate)
             UserRole.ADMIN -> listOf(Tab.Home, Tab.Explore, Tab.SellerProfile)
-            UserRole.SLAUGHTERHOUSE -> listOf(Tab.Home, Tab.Explore, Tab.SellerProfile)
+            UserRole.SLAUGHTERHOUSE -> listOf(
+                Tab.SlaughterhouseProfile,
+                Tab.SlaughterhouseSearch,
+                Tab.SlaughterhouseOffers,
+                Tab.SlaughterhouseCreate
+            )
         }
     }
 
@@ -85,6 +95,7 @@ fun MainScreen(
                     UserRole.ADMIN -> "Yönetici"
                     UserRole.ANIMAL_SELLER -> "Satıcı Paneli"
                     UserRole.MEAT_BUYER -> "Alıcı"
+                    UserRole.SLAUGHTERHOUSE -> "Kesimhane"
                 },
                 subtitle = when (selectedTab) {
                     Tab.Home -> "Günlük operasyon özetiniz"
@@ -95,6 +106,10 @@ fun MainScreen(
                     Tab.SellerSearch -> "Kesimhane ilanlarını incele"
                     Tab.SellerOffers -> "Tekliflerin ve mesajların"
                     Tab.SellerCreate -> "Yeni hayvan ilanı oluştur"
+                    Tab.SlaughterhouseProfile -> "Kişi bilgileri ve favoriler"
+                    Tab.SlaughterhouseSearch -> "Satıcı hayvan ilanlarını filtrele"
+                    Tab.SlaughterhouseOffers -> "Teklifler ve mesajlar"
+                    Tab.SlaughterhouseCreate -> "Et ilanı oluştur"
                 }
             )
             if (userRole == UserRole.ADMIN) {
@@ -117,6 +132,13 @@ fun MainScreen(
                     Tab.SellerSearch -> SellerSearchScreen(marketService = marketService)
                     Tab.SellerOffers -> SellerOffersScreen(marketService = marketService)
                     Tab.SellerCreate -> SellerCreateListingScreen(marketService = marketService)
+                    Tab.SlaughterhouseProfile -> SlaughterhouseProfileScreen(
+                        marketService = marketService,
+                        onLogout = onLogout
+                    )
+                    Tab.SlaughterhouseSearch -> SlaughterhouseSearchScreen(marketService = marketService)
+                    Tab.SlaughterhouseOffers -> SlaughterhouseOffersScreen(marketService = marketService)
+                    Tab.SlaughterhouseCreate -> SlaughterhouseCreateMeatSaleRequestScreen(marketService = marketService)
                     else -> Unit
                 }
             }
@@ -134,6 +156,7 @@ fun HomeScreenByRole(
         UserRole.ADMIN -> Unit
         UserRole.ANIMAL_SELLER -> SellerHomeScreen(sellerViewModel, selectedFilter)
         UserRole.MEAT_BUYER -> BuyerHomeScreen()
+        UserRole.SLAUGHTERHOUSE -> Unit
     }
 }
 
@@ -143,6 +166,7 @@ fun ExploreScreen(userRole: UserRole) {
         UserRole.ADMIN -> "Yönetici"
         UserRole.ANIMAL_SELLER -> "Satıcı"
         UserRole.MEAT_BUYER -> "Et Alıcı"
+        UserRole.SLAUGHTERHOUSE -> "Kesimhane"
     }
     Column(
         modifier = Modifier

@@ -3,6 +3,79 @@ package com.derdimet.mobil.service
 import com.derdimet.mobil.model.*
 
 class MarketService(private val apiService: ApiService) {
+    suspend fun fetchSlaughterhouseFavoriteSellers(): ApiResponse<List<FavoriteSellerDto>> {
+        return apiService.get("/api/slaughterhouse/profile/favorites/sellers")
+    }
+
+    suspend fun addSlaughterhouseFavoriteSeller(sellerId: Long): ApiResponse<Unit> {
+        return apiService.post("/api/slaughterhouse/profile/favorites/sellers/$sellerId", body = mapOf<String, String>())
+    }
+
+    suspend fun removeSlaughterhouseFavoriteSeller(sellerId: Long): ApiResponse<Unit> {
+        return apiService.delete("/api/slaughterhouse/profile/favorites/sellers/$sellerId")
+    }
+
+    suspend fun fetchSlaughterhouseFavoriteBuyers(): ApiResponse<List<FavoriteMeatBuyerDto>> {
+        return apiService.get("/api/slaughterhouse/profile/favorites/buyers")
+    }
+
+    suspend fun addSlaughterhouseFavoriteBuyer(buyerId: Long): ApiResponse<Unit> {
+        return apiService.post("/api/slaughterhouse/profile/favorites/buyers/$buyerId", body = mapOf<String, String>())
+    }
+
+    suspend fun removeSlaughterhouseFavoriteBuyer(buyerId: Long): ApiResponse<Unit> {
+        return apiService.delete("/api/slaughterhouse/profile/favorites/buyers/$buyerId")
+    }
+
+    suspend fun fetchSlaughterhousePurchases(limit: Int = 10): ApiResponse<List<SlaughterhousePurchaseItemDto>> {
+        return apiService.get("/api/slaughterhouse/profile/purchases?limit=$limit")
+    }
+
+    suspend fun fetchSlaughterhouseSales(limit: Int = 10): ApiResponse<List<SlaughterhouseSaleItemDto>> {
+        return apiService.get("/api/slaughterhouse/profile/sales?limit=$limit")
+    }
+
+    suspend fun searchSlaughterhouseAnimalListingsFiltered(
+        category: String? = null,
+        type: String? = null,
+        ageMin: Int? = null,
+        ageMax: Int? = null,
+        quantityMin: Int? = null,
+        quantityMax: Int? = null,
+        priceMin: Double? = null,
+        priceMax: Double? = null,
+        sort: String = "newest",
+    ): ApiResponse<List<SellerAnimalListingDto>> {
+        val endpoint = buildString {
+            append("/api/slaughterhouse/animal-listings?sort=").append(sort)
+            if (!category.isNullOrBlank()) append("&category=").append(category)
+            if (!type.isNullOrBlank()) append("&type=").append(type.trim())
+            if (ageMin != null) append("&ageMin=").append(ageMin)
+            if (ageMax != null) append("&ageMax=").append(ageMax)
+            if (quantityMin != null) append("&quantityMin=").append(quantityMin)
+            if (quantityMax != null) append("&quantityMax=").append(quantityMax)
+            if (priceMin != null) append("&priceMin=").append(priceMin)
+            if (priceMax != null) append("&priceMax=").append(priceMax)
+        }
+        return apiService.get(endpoint)
+    }
+
+    suspend fun createSlaughterhouseListingOffer(
+        listingId: Long,
+        payload: CreateSlaughterhouseListingOfferPayload,
+    ): ApiResponse<SlaughterhouseListingOfferDto> {
+        return apiService.post("/api/slaughterhouse/animal-listings/$listingId/offers", payload)
+    }
+
+    suspend fun fetchMySlaughterhouseListingOffers(): ApiResponse<List<SlaughterhouseListingOfferDto>> {
+        return apiService.get("/api/slaughterhouse/offers")
+    }
+
+    suspend fun createSlaughterhouseMeatSaleRequest(
+        payload: CreateMeatSaleRequestPayload,
+    ): ApiResponse<MeatSaleRequestDto> {
+        return apiService.post("/api/slaughterhouse/meat-sale-requests", payload)
+    }
 
     suspend fun createAnimalPurchaseRequest(payload: CreateAnimalPurchasePayload): ApiResponse<AnimalPurchaseRequestDto> {
         // Yeni mantık: hayvan alım talebini kesimhane açar

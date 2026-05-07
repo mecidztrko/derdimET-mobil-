@@ -1,7 +1,6 @@
 package com.derdimet.mobil.service
 
 import com.derdimet.mobil.model.ApiResponse
-import com.derdimet.mobil.model.AnimalListingDto
 import com.derdimet.mobil.model.LoginResponse
 import com.derdimet.mobil.model.MeResponse
 import io.ktor.client.*
@@ -89,10 +88,6 @@ class ApiService(
         } else {
             ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
         }
-    }
-
-    suspend fun listAnimalListings(): ApiResponse<List<AnimalListingDto>> {
-        return get("/api/listings?sort=newest")
     }
 
     suspend inline fun <reified T> delete(endpoint: String): ApiResponse<T> {

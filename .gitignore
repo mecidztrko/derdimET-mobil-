@@ -39,6 +39,10 @@ yarn-error.*
 # Android SDK (kullanici makinesine ozel)
 local.properties
 
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
 # typescript
 *.tsbuildinfo
 

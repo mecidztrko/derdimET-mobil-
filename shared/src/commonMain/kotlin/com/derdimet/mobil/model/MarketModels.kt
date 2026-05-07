@@ -84,6 +84,14 @@ data class CreateMeatOfferPayload(
 )
 
 @Serializable
+data class CreateMeatSaleRequestPayload(
+    val title: String,
+    val meatType: String,
+    val quantity: Double,
+    val description: String? = null,
+)
+
+@Serializable
 data class BuyerMeatOfferItemDto(
     val offerId: Long,
     val saleRequestId: Long,
@@ -141,6 +149,7 @@ data class ConversationItemDto(
     val otherUserId: Long,
     val otherUserName: String? = null,
     val otherUserEmail: String? = null,
+    val otherUserRole: String? = null,
     val lastMessageAt: String? = null,
 )
 
@@ -184,4 +193,63 @@ data class CreateSellerAnimalListingPayload(
     val price: Double? = null,
     val description: String? = null,
     val imageUrls: List<String>? = null,
+)
+
+@Serializable
+data class CreateSlaughterhouseListingOfferPayload(
+    val pricePerKg: Double,
+    val quantity: Int,
+    val note: String? = null,
+)
+
+@Serializable
+data class SlaughterhouseListingOfferDto(
+    val offerId: Long,
+    val listingId: Long,
+    val listingType: String? = null,
+    val listingCategory: String? = null,
+    val sellerId: Long? = null,
+    val sellerName: String? = null,
+    val slaughterhouseId: Long? = null,
+    val slaughterhouseName: String? = null,
+    val pricePerKg: Double? = null,
+    val quantity: Int? = null,
+    val note: String? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+)
+
+@Serializable
+data class FavoriteMeatBuyerDto(
+    val buyerId: Long,
+    val buyerName: String? = null,
+    val buyerEmail: String? = null,
+    val createdAt: String,
+)
+
+@Serializable
+data class SlaughterhousePurchaseItemDto(
+    val offerId: Long,
+    val requestId: Long? = null,
+    val requestTitle: String? = null,
+    val sellerId: Long? = null,
+    val sellerName: String? = null,
+    val pricePerKg: Double? = null,
+    val animalCount: Int? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+)
+
+@Serializable
+data class SlaughterhouseSaleItemDto(
+    val orderId: Long,
+    val buyerId: Long? = null,
+    val buyerName: String? = null,
+    val meatOfferId: Long? = null,
+    val saleRequestId: Long? = null,
+    val saleTitle: String? = null,
+    val meatType: String? = null,
+    val totalPrice: Double? = null,
+    val status: String? = null,
+    val createdAt: String,
 )
