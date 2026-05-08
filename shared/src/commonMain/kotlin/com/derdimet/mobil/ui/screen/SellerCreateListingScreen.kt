@@ -16,9 +16,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,20 +31,25 @@ import com.derdimet.mobil.model.CreateSellerAnimalListingPayload
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.FigmaCard
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
+import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.components.ImageCarousel
 
 @Composable
 fun SellerCreateListingScreen(
     marketService: MarketService,
 ) {
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf<AnimalCategory?>(null) }
     var type by remember { mutableStateOf("") }
+    var breed by remember { mutableStateOf("") }
     var ageMonths by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
+    var avgWeightKg by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
-    var imageUrl by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var imageUrlInput by remember { mutableStateOf("") }
+    val imageUrls = remember { mutableStateListOf<String>() }
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
@@ -59,33 +65,45 @@ fun SellerCreateListingScreen(
         FigmaCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(text = "🐄 Hayvan İlanı Oluştur", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(text = "Kesimhaneler bu ilanı görüp teklif verebilir.", color = FigmaStyle.MutedText, fontSize = 12.sp)
                 Text(
-                    text = "İpucu: Tür/ırk ve adet doğru olursa daha hızlı dönüş alırsın.",
-                    color = Color(0xFF64748B),
+                    text = "Kesimhaneler bu ilanı görüp teklif verebilir.",
+                    color = FigmaStyle.MutedText,
                     fontSize = 12.sp,
                 )
             }
         }
 
         FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(text = "İlan detayları", fontWeight = FontWeight.SemiBold)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FigmaSecondaryButton(
+                        text = if (category == AnimalCategory.KUCUKBAS) "✓ Küçükbaş" else "Küçükbaş",
+                        onClick = { category = AnimalCategory.KUCUKBAS },
+                        modifier = Modifier.weight(1f),
+                    )
+                    FigmaSecondaryButton(
+                        text = if (category == AnimalCategory.BUYUKBAS) "✓ Büyükbaş" else "Büyükbaş",
+                        onClick = { category = AnimalCategory.BUYUKBAS },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
 
-                OutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = { Text("Kategori (KUCUKBAS/BUYUKBAS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
                 OutlinedTextField(
                     value = type,
                     onValueChange = { type = it },
-                    label = { Text("Tür / Irk") },
+                    label = { Text("Tür (örn: dana, kuzu)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
+                OutlinedTextField(
+                    value = breed,
+                    onValueChange = { breed = it },
+                    label = { Text("Irk (örn: Simental)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = ageMonths,
@@ -102,47 +120,93 @@ fun SellerCreateListingScreen(
                         singleLine = true,
                     )
                 }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = avgWeightKg,
+                        onValueChange = { avgWeightKg = it },
+                        label = { Text("Ort. ağırlık (kg)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { price = it },
+                        label = { Text("Fiyat (₺)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
                 OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it },
-                    label = { Text("Fiyat (opsiyonel)") },
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text("Konum (il/ilçe)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
                 OutlinedTextField(
-                    value = imageUrl,
-                    onValueChange = { imageUrl = it },
-                    label = { Text("Görsel URL (şimdilik)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
+                    value = description,
+                    onValueChange = { description = it },
                     label = { Text("Açıklama (opsiyonel)") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                 )
-
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                success?.let { Text(it, color = Color(0xFF166534)) }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                FigmaPrimaryButton(
-                    text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
-                    enabled = !submitting,
-                    onClick = { submitting = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Text(
-                    text = "Not: Görsel yükleme şimdilik URL ile.",
-                    color = Color(0xFF94A3B8),
-                    style = MaterialTheme.typography.bodySmall,
-                )
             }
         }
+
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(text = "Görseller", fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = "Ekleyeceğin URL'ler aşağıda görünür. Mobil cihazdan dosya yüklemek için URL alanına yüklediğin görselin URL'sini de yapıştırabilirsin.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedTextField(
+                        value = imageUrlInput,
+                        onValueChange = { imageUrlInput = it },
+                        label = { Text("Görsel URL") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    FigmaSecondaryButton(
+                        text = "Ekle",
+                        onClick = {
+                            val u = imageUrlInput.trim()
+                            if (u.isNotBlank()) {
+                                imageUrls.add(u)
+                                imageUrlInput = ""
+                            }
+                        },
+                    )
+                }
+                if (imageUrls.isNotEmpty()) {
+                    ImageCarousel(imageUrls = imageUrls.toList())
+                    FigmaSecondaryButton(
+                        text = "Tüm görselleri kaldır",
+                        onClick = { imageUrls.clear() },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        success?.let { Text(it, color = Color(0xFF166534)) }
+
+        Spacer(Modifier.height(2.dp))
+
+        FigmaPrimaryButton(
+            text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
+            enabled = !submitting,
+            onClick = { submitting = true },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(20.dp))
     }
 
     LaunchedEffect(submitting) {
@@ -150,9 +214,10 @@ fun SellerCreateListingScreen(
         error = null
         success = null
 
-        val cat = runCatching { AnimalCategory.valueOf(category.trim().uppercase()) }.getOrNull()
+        val cat = category
         val qty = quantity.trim().toIntOrNull()
         val age = ageMonths.trim().toIntOrNull()
+        val avgW = avgWeightKg.trim().replace(',', '.').toDoubleOrNull()
         val p = price.trim().replace(',', '.').toDoubleOrNull()
 
         if (cat == null || qty == null || qty <= 0 || type.isBlank()) {
@@ -165,11 +230,14 @@ fun SellerCreateListingScreen(
             CreateSellerAnimalListingPayload(
                 category = cat,
                 type = type.trim(),
+                breed = breed.trim().ifBlank { null },
                 ageMonths = age,
                 quantity = qty,
+                avgWeightKg = avgW,
                 price = p,
-                description = note.trim().ifBlank { null },
-                imageUrls = imageUrl.trim().ifBlank { null }?.let { listOf(it) },
+                location = location.trim().ifBlank { null },
+                description = description.trim().ifBlank { null },
+                imageUrls = imageUrls.toList().ifEmpty { null },
             )
         )
 
@@ -180,14 +248,17 @@ fun SellerCreateListingScreen(
         }
 
         success = "İlan oluşturuldu."
-        category = ""
+        category = null
         type = ""
+        breed = ""
         ageMonths = ""
         quantity = ""
+        avgWeightKg = ""
         price = ""
-        imageUrl = ""
-        note = ""
+        location = ""
+        description = ""
+        imageUrlInput = ""
+        imageUrls.clear()
         submitting = false
     }
 }
-

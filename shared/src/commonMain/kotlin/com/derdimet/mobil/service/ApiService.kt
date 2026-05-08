@@ -3,11 +3,14 @@ package com.derdimet.mobil.service
 import com.derdimet.mobil.model.ApiResponse
 import com.derdimet.mobil.model.LoginResponse
 import com.derdimet.mobil.model.MeResponse
+import com.derdimet.mobil.model.UploadedImageResponse
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -16,7 +19,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class ApiService(
-    private val baseUrl: String = "https://api.derdimet.com"
+    // Android emulator için http://10.0.2.2:8081, iOS/Web için http://localhost:8081 kullanabilirsiniz.
+    private val baseUrl: String = "http://10.0.2.2:8081"
 ) {
     @PublishedApi internal var currentAuthToken: String? = null
     @PublishedApi internal val client = HttpClient {
@@ -133,6 +137,44 @@ class ApiService(
             }
         } catch (e: Exception) {
             ApiResponse(data = null as T, success = false, message = e.message)
+        }
+    }
+
+    /** Tek bir görseli `/api/media/images` endpoint'ine multipart olarak yükler. */
+    suspend fun uploadImage(
+        bytes: ByteArray,
+        filename: String,
+        contentType: String,
+    ): ApiResponse<UploadedImageResponse> {
+        return try {
+            val response: HttpResponse = client.post("/api/media/images") {
+                auth()
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            append(
+                                key = "file",
+                                value = bytes,
+                                headers = Headers.build {
+                                    append(HttpHeaders.ContentType, contentType)
+                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                                },
+                            )
+                        }
+                    )
+                )
+            }
+            if (response.status.isSuccess()) {
+                ApiResponse(data = response.body(), success = true)
+            } else {
+                ApiResponse(
+                    data = UploadedImageResponse(url = ""),
+                    success = false,
+                    message = "API Hatası: ${response.status}",
+                )
+            }
+        } catch (e: Exception) {
+            ApiResponse(data = UploadedImageResponse(url = ""), success = false, message = e.message)
         }
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaSegmentedTabs
 import com.derdimet.mobil.ui.components.FigmaStyle
@@ -41,6 +42,18 @@ fun BuyerMyOffersScreen(
     var offers by remember { mutableStateOf<List<BuyerMeatOfferItemDto>>(emptyList()) }
     var conversations by remember { mutableStateOf<List<ConversationItemDto>>(emptyList()) }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
+    var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(startChatWithUserId) {
+        val otherId = startChatWithUserId ?: return@LaunchedEffect
+        startChatWithUserId = null
+        val res = marketService.getOrCreateConversation(otherId)
+        if (res.success && res.data != null) {
+            selectedConversation = res.data
+        } else {
+            error = res.message ?: "Sohbet başlatılamadı"
+        }
+    }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -103,6 +116,14 @@ fun BuyerMyOffersScreen(
                                     Text(
                                         text = "Kesimhane: ${item.slaughterhouseName ?: item.slaughterhouseId ?: "-"}",
                                         color = Color(0xFF94A3B8),
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    val otherId = item.slaughterhouseId
+                                    FigmaPrimaryButton(
+                                        text = "Sohbet",
+                                        enabled = otherId != null,
+                                        onClick = { if (otherId != null) startChatWithUserId = otherId },
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
                             }

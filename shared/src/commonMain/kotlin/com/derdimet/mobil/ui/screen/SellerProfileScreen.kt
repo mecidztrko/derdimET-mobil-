@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.model.FavoriteBuyerDto
 import com.derdimet.mobil.model.SellerSaleItemDto
 import com.derdimet.mobil.service.MarketService
@@ -41,6 +42,35 @@ fun SellerProfileScreen(
     var favorites by remember { mutableStateOf<List<FavoriteBuyerDto>>(emptyList()) }
     var sales by remember { mutableStateOf<List<SellerSaleItemDto>>(emptyList()) }
     var refreshTick by remember { mutableStateOf(0) }
+
+    var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
+    var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
+    var openProfileUserId by remember { mutableStateOf<Long?>(null) }
+
+    val convo = selectedConversation
+    if (convo != null) {
+        ChatScreen(
+            marketService = marketService,
+            conversationId = convo.conversationId,
+            title = convo.otherUserName ?: (convo.otherUserEmail ?: "Sohbet"),
+            onBack = { selectedConversation = null },
+        )
+        return
+    }
+
+    val openId = openProfileUserId
+    if (openId != null) {
+        PublicProfileScreen(
+            userId = openId,
+            marketService = marketService,
+            onBack = { openProfileUserId = null },
+            onMessage = { id ->
+                openProfileUserId = null
+                startChatWithUserId = id
+            },
+        )
+        return
+    }
 
     LaunchedEffect(refreshTick) {
         isLoading = true
@@ -87,12 +117,17 @@ fun SellerProfileScreen(
         FigmaCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(text = "Favori alıcılar (Kesimhaneler)", fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = "İlan sayfasındaki kalp ikonundan ekleyebilirsin.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                )
                 when {
                     isLoading -> Text("Yükleniyor...", color = Color(0xFF64748B))
                     error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
                     favorites.isEmpty() -> Text("Henüz favori kesimhane yok.", color = Color(0xFF64748B))
                     else -> favorites.take(10).forEach { f ->
-                        Row(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = f.buyerName ?: "Kesimhane #${f.buyerId}", fontWeight = FontWeight.Medium)
                                 Text(
@@ -101,6 +136,14 @@ fun SellerProfileScreen(
                                     fontSize = 12.sp,
                                 )
                             }
+                            FigmaSecondaryButton(
+                                text = "Profil",
+                                onClick = { openProfileUserId = f.buyerId },
+                            )
+                            FigmaSecondaryButton(
+                                text = "Sohbet",
+                                onClick = { startChatWithUserId = f.buyerId },
+                            )
                         }
                     }
                 }
@@ -126,6 +169,17 @@ fun SellerProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(4.dp))
+    }
+
+    LaunchedEffect(startChatWithUserId) {
+        val otherId = startChatWithUserId ?: return@LaunchedEffect
+        startChatWithUserId = null
+        val res = marketService.getOrCreateConversation(otherId)
+        if (res.success && res.data != null) {
+            selectedConversation = res.data
+        } else {
+            error = res.message ?: "Sohbet başlatılamadı"
+        }
     }
 }
 

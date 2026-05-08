@@ -16,13 +16,16 @@ data class AnimalPurchaseRequestDto(
     val id: Int,
     val slaughterhouseId: Long? = null,
     val slaughterhouseName: String? = null,
+    val slaughterhouseCompanyName: String? = null,
+    val slaughterhouseCity: String? = null,
     val title: String,
     val animalCategory: AnimalCategory? = null,
     val quantity: Int? = null,
     val expectedWeight: Double? = null,
     val description: String? = null,
     val status: RequestStatus,
-    val createdAt: String
+    val createdAt: String,
+    val isFavoritedByMe: Boolean? = null,
 )
 
 @Serializable
@@ -68,12 +71,21 @@ data class MeatSaleRequestDto(
     val id: Long,
     val slaughterhouseId: Long? = null,
     val slaughterhouseName: String? = null,
+    val slaughterhouseCompanyName: String? = null,
+    val slaughterhouseCity: String? = null,
     val title: String,
     val meatType: String,
+    val animalCategory: AnimalCategory? = null,
+    val cut: String? = null,
     val quantity: Double? = null,
+    val pricePerKg: Double? = null,
+    val packaging: String? = null,
+    val location: String? = null,
     val description: String? = null,
+    val imageUrls: List<String> = emptyList(),
     val status: RequestStatus,
     val createdAt: String,
+    val isFavoritedByMe: Boolean? = null,
 )
 
 @Serializable
@@ -87,8 +99,14 @@ data class CreateMeatOfferPayload(
 data class CreateMeatSaleRequestPayload(
     val title: String,
     val meatType: String,
+    val animalCategory: AnimalCategory? = null,
+    val cut: String? = null,
     val quantity: Double,
+    val pricePerKg: Double? = null,
+    val packaging: String? = null,
+    val location: String? = null,
     val description: String? = null,
+    val imageUrls: List<String>? = null,
 )
 
 @Serializable
@@ -173,24 +191,33 @@ data class SellerAnimalListingDto(
     val id: Long,
     val sellerId: Long? = null,
     val sellerName: String? = null,
+    val sellerCompanyName: String? = null,
+    val sellerCity: String? = null,
     val category: AnimalCategory,
     val type: String,
+    val breed: String? = null,
     val ageMonths: Int? = null,
     val quantity: Int,
+    val avgWeightKg: Double? = null,
     val price: Double? = null,
+    val location: String? = null,
     val description: String? = null,
-    val imageUrls: String? = null,
+    val imageUrls: List<String> = emptyList(),
     val status: RequestStatus,
     val createdAt: String,
+    val isFavoritedByMe: Boolean? = null,
 )
 
 @Serializable
 data class CreateSellerAnimalListingPayload(
     val category: AnimalCategory,
     val type: String,
+    val breed: String? = null,
     val ageMonths: Int? = null,
     val quantity: Int,
+    val avgWeightKg: Double? = null,
     val price: Double? = null,
+    val location: String? = null,
     val description: String? = null,
     val imageUrls: List<String>? = null,
 )
@@ -252,4 +279,43 @@ data class SlaughterhouseSaleItemDto(
     val totalPrice: Double? = null,
     val status: String? = null,
     val createdAt: String,
+)
+
+@Serializable
+data class PublicUserProfileDto(
+    val id: Long,
+    val name: String? = null,
+    val role: String? = null,
+    val accountType: String? = null,
+    val companyName: String? = null,
+    val city: String? = null,
+    val addressLine: String? = null,
+    val profileImageUrl: String? = null,
+    val emailVerified: Boolean = false,
+    val businessVerified: Boolean = false,
+)
+
+@Serializable
+data class FavoriteSlaughterhouseDto(
+    val slaughterhouseId: Long,
+    val slaughterhouseName: String? = null,
+    val slaughterhouseCompanyName: String? = null,
+    val slaughterhouseCity: String? = null,
+    val slaughterhouseEmail: String? = null,
+    val createdAt: String,
+)
+
+@Serializable
+data class FavoriteToggleResponse(
+    val isFavoritedByMe: Boolean,
+)
+
+@Serializable
+data class UploadedImageResponse(
+    val url: String,
+)
+
+@Serializable
+data class UploadedImagesResponse(
+    val urls: List<String>,
 )

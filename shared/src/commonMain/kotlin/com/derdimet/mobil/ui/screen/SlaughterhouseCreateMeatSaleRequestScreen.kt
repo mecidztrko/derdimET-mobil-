@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,11 +26,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.derdimet.mobil.model.AnimalCategory
 import com.derdimet.mobil.model.CreateMeatSaleRequestPayload
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.FigmaCard
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
+import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.components.ImageCarousel
 
 @Composable
 fun SlaughterhouseCreateMeatSaleRequestScreen(
@@ -37,8 +41,15 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var meatType by remember { mutableStateOf("") }
-    var quantityText by remember { mutableStateOf("") } // kg
+    var animalCategory by remember { mutableStateOf<AnimalCategory?>(null) }
+    var cut by remember { mutableStateOf("") }
+    var quantityText by remember { mutableStateOf("") }
+    var pricePerKgText by remember { mutableStateOf("") }
+    var packaging by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var imageUrlInput by remember { mutableStateOf("") }
+    val imageUrls = remember { mutableStateListOf<String>() }
 
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -60,17 +71,24 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
                     color = Color(0xFF94A3B8),
                     fontSize = 12.sp,
                 )
-                Text(
-                    text = "İpucu: Başlık net olursa daha hızlı teklif gelir (örn: “Dana kuşbaşı - günlük kesim”).",
-                    color = Color(0xFF64748B),
-                    fontSize = 12.sp,
-                )
             }
         }
 
         FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(text = "İlan detayları", fontWeight = FontWeight.SemiBold)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(text = "Hayvan kategorisi", fontWeight = FontWeight.SemiBold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FigmaSecondaryButton(
+                        text = if (animalCategory == AnimalCategory.KUCUKBAS) "✓ Küçükbaş" else "Küçükbaş",
+                        onClick = { animalCategory = AnimalCategory.KUCUKBAS },
+                        modifier = Modifier.weight(1f),
+                    )
+                    FigmaSecondaryButton(
+                        text = if (animalCategory == AnimalCategory.BUYUKBAS) "✓ Büyükbaş" else "Büyükbaş",
+                        onClick = { animalCategory = AnimalCategory.BUYUKBAS },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
 
                 OutlinedTextField(
                     value = title,
@@ -79,23 +97,52 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = meatType,
+                        onValueChange = { meatType = it },
+                        label = { Text("Et türü") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = cut,
+                        onValueChange = { cut = it },
+                        label = { Text("Et bölgesi (örn: but)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = quantityText,
+                        onValueChange = { quantityText = it },
+                        label = { Text("Miktar (kg)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = pricePerKgText,
+                        onValueChange = { pricePerKgText = it },
+                        label = { Text("Kg fiyatı (₺)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
                 OutlinedTextField(
-                    value = meatType,
-                    onValueChange = { meatType = it },
-                    label = { Text("Et türü (örn: dana, kuzu)") },
+                    value = packaging,
+                    onValueChange = { packaging = it },
+                    label = { Text("Paketleme (örn: vakumlu 1 kg)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-
                 OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it },
-                    label = { Text("Miktar (kg)") },
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text("Konum") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -103,31 +150,67 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                 )
+            }
+        }
 
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                success?.let { Text(it, color = Color(0xFF166534)) }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FigmaPrimaryButton(
-                        text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
-                        enabled = !submitting,
-                        onClick = { submitting = true },
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(text = "Görseller", fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedTextField(
+                        value = imageUrlInput,
+                        onValueChange = { imageUrlInput = it },
+                        label = { Text("Görsel URL") },
                         modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    FigmaSecondaryButton(
+                        text = "Ekle",
+                        onClick = {
+                            val u = imageUrlInput.trim()
+                            if (u.isNotBlank()) {
+                                imageUrls.add(u)
+                                imageUrlInput = ""
+                            }
+                        },
+                    )
+                }
+                if (imageUrls.isNotEmpty()) {
+                    ImageCarousel(imageUrls = imageUrls.toList())
+                    FigmaSecondaryButton(
+                        text = "Tüm görselleri kaldır",
+                        onClick = { imageUrls.clear() },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
         }
+
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        success?.let { Text(it, color = Color(0xFF166534)) }
+
+        Spacer(Modifier.height(2.dp))
+
+        FigmaPrimaryButton(
+            text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
+            enabled = !submitting,
+            onClick = { submitting = true },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(20.dp))
     }
 
     LaunchedEffect(submitting) {
         if (!submitting) return@LaunchedEffect
-
         error = null
         success = null
 
         val q = quantityText.trim().replace(',', '.').toDoubleOrNull()
+        val ppk = pricePerKgText.trim().replace(',', '.').toDoubleOrNull()
         if (title.isBlank() || meatType.isBlank() || q == null || q <= 0) {
             error = "Başlık, et türü ve geçerli miktar zorunlu."
             submitting = false
@@ -138,8 +221,14 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
             payload = CreateMeatSaleRequestPayload(
                 title = title.trim(),
                 meatType = meatType.trim(),
+                animalCategory = animalCategory,
+                cut = cut.trim().ifBlank { null },
                 quantity = q,
+                pricePerKg = ppk,
+                packaging = packaging.trim().ifBlank { null },
+                location = location.trim().ifBlank { null },
                 description = description.trim().ifBlank { null },
+                imageUrls = imageUrls.toList().ifEmpty { null },
             )
         )
 
@@ -152,9 +241,15 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
         success = "İlan oluşturuldu."
         title = ""
         meatType = ""
+        animalCategory = null
+        cut = ""
         quantityText = ""
+        pricePerKgText = ""
+        packaging = ""
+        location = ""
         description = ""
+        imageUrlInput = ""
+        imageUrls.clear()
         submitting = false
     }
 }
-

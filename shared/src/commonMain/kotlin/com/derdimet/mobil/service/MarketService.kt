@@ -178,4 +178,36 @@ class MarketService(private val apiService: ApiService) {
     suspend fun fetchMySellerAnimalListings(): ApiResponse<List<SellerAnimalListingDto>> {
         return apiService.get("/api/seller/animal-listings")
     }
+
+    suspend fun fetchAnimalListingDetail(id: Long): ApiResponse<SellerAnimalListingDto> {
+        return apiService.get("/api/listings/animal/$id")
+    }
+
+    suspend fun fetchMeatSaleRequestDetail(id: Long): ApiResponse<MeatSaleRequestDto> {
+        return apiService.get("/api/listings/meat/$id")
+    }
+
+    suspend fun fetchAnimalPurchaseRequestDetail(id: Long): ApiResponse<AnimalPurchaseRequestDto> {
+        return apiService.get("/api/listings/animal-request/$id")
+    }
+
+    suspend fun fetchPublicProfile(userId: Long): ApiResponse<PublicUserProfileDto> {
+        return apiService.get("/api/users/$userId/public")
+    }
+
+    suspend fun toggleFavorite(targetUserId: Long): ApiResponse<FavoriteToggleResponse> {
+        return apiService.post("/api/favorites/toggle/$targetUserId", body = mapOf<String, String>())
+    }
+
+    suspend fun fetchBuyerFavoriteSlaughterhouses(): ApiResponse<List<FavoriteSlaughterhouseDto>> {
+        return apiService.get("/api/buyer/favorite-slaughterhouses")
+    }
+
+    suspend fun uploadImage(
+        bytes: ByteArray,
+        filename: String,
+        contentType: String,
+    ): ApiResponse<UploadedImageResponse> {
+        return apiService.uploadImage(bytes, filename, contentType)
+    }
 }

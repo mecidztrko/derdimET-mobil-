@@ -1,6 +1,7 @@
 package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -30,13 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.derdimet.mobil.model.CreateSlaughterhouseListingOfferPayload
 import com.derdimet.mobil.model.AnimalCategory
-import com.derdimet.mobil.model.FavoriteSellerDto
+import com.derdimet.mobil.model.ConversationItemDto
+import com.derdimet.mobil.model.CreateSlaughterhouseListingOfferPayload
 import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.FigmaCard
@@ -64,19 +70,18 @@ fun SlaughterhouseSearchScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var listings by remember { mutableStateOf<List<SellerAnimalListingDto>>(emptyList()) }
-    var favoriteSellers by remember { mutableStateOf<List<FavoriteSellerDto>>(emptyList()) }
+    var favoriteSellerIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var favSubmittingSellerId by remember { mutableStateOf<Long?>(null) }
 
     var query by remember { mutableStateOf("") }
     var filters by remember { mutableStateOf(ShFilters()) }
     var filterOpen by remember { mutableStateOf(false) }
 
-    var offerDialogListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
-    var offerPriceText by remember { mutableStateOf("") }
-    var offerQuantityText by remember { mutableStateOf("") }
-    var offerNoteText by remember { mutableStateOf("") }
-    var offerSubmitting by remember { mutableStateOf(false) }
-    var offerSubmitError by remember { mutableStateOf<String?>(null) }
+    var detailListingId by remember { mutableStateOf<Long?>(null) }
+    var offerForListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
+    var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
+    var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
+    var openProfileUserId by remember { mutableStateOf<Long?>(null) }
 
     fun parseIntOrNull(s: String): Int? = s.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
     fun parseDoubleOrNull(s: String): Double? = s.trim().takeIf { it.isNotEmpty() }?.replace(',', '.')?.toDoubleOrNull()
@@ -84,7 +89,6 @@ fun SlaughterhouseSearchScreen(
     suspend fun refresh() {
         isLoading = true
         error = null
-
         val res = marketService.searchSlaughterhouseAnimalListingsFiltered(
             category = filters.category?.name,
             type = filters.type.takeIf { it.isNotBlank() } ?: query.takeIf { it.isNotBlank() },
@@ -96,7 +100,6 @@ fun SlaughterhouseSearchScreen(
             priceMax = parseDoubleOrNull(filters.priceMax),
             sort = filters.sort,
         )
-
         if (res.success) {
             val all = res.data ?: emptyList()
             listings =
@@ -114,16 +117,83 @@ fun SlaughterhouseSearchScreen(
     suspend fun refreshFavorites() {
         val fav = marketService.fetchSlaughterhouseFavoriteSellers()
         if (fav.success) {
-            favoriteSellers = fav.data ?: emptyList()
-        } else if (error == null) {
-            error = fav.message ?: "Favoriler alınamadı"
+            favoriteSellerIds = (fav.data ?: emptyList()).mapNotNull { it.sellerId }.toSet()
         }
     }
 
     LaunchedEffect(filters, query) { refresh() }
+    LaunchedEffect(Unit) { refreshFavorites() }
 
-    LaunchedEffect(Unit) {
-        refreshFavorites()
+    // Detail screen overlay
+    val detailId = detailListingId
+    if (detailId != null) {
+        SellerAnimalListingDetailScreen(
+            listingId = detailId,
+            marketService = marketService,
+            onBack = { detailListingId = null },
+            onMakeOffer = { l -> offerForListing = l },
+            onMessage = { sid ->
+                detailListingId = null
+                startChatWithUserId = sid
+            },
+            onOpenSellerProfile = { sid -> openProfileUserId = sid },
+        )
+        // Profile inside detail
+        val openId = openProfileUserId
+        if (openId != null) {
+            PublicProfileScreen(
+                userId = openId,
+                marketService = marketService,
+                onBack = { openProfileUserId = null },
+                onMessage = { id ->
+                    openProfileUserId = null
+                    detailListingId = null
+                    startChatWithUserId = id
+                },
+            )
+        }
+        return
+    }
+
+    // Offer create overlay
+    val offerListing = offerForListing
+    if (offerListing != null) {
+        OfferCreateScreen(
+            title = offerListing.type,
+            subtitle = "Satıcı: ${offerListing.sellerName ?: "-"}",
+            contextLine = "Adet: ${offerListing.quantity} • Fiyat: ${offerListing.price ?: "-"}",
+            showQuantityAsInt = true,
+            quantityLabel = "Adet",
+            onBack = { offerForListing = null },
+            onSuccess = {
+                offerForListing = null
+                detailListingId = null
+            },
+            submit = { price, qty, note ->
+                val res = marketService.createSlaughterhouseListingOffer(
+                    listingId = offerListing.id,
+                    payload = CreateSlaughterhouseListingOfferPayload(
+                        pricePerKg = price,
+                        quantity = qty.toInt(),
+                        note = note,
+                    ),
+                )
+                Pair(res.success, res.message)
+            },
+        )
+        return
+    }
+
+    // Chat overlay
+    val convo = selectedConversation
+    if (convo != null) {
+        ChatScreen(
+            marketService = marketService,
+            conversationId = convo.conversationId,
+            title = convo.otherUserName ?: (convo.otherUserEmail ?: "Sohbet"),
+            onBack = { selectedConversation = null },
+        )
+        return
     }
 
     val activeFilterCount = remember(filters) {
@@ -164,7 +234,6 @@ fun SlaughterhouseSearchScreen(
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                 }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -181,12 +250,9 @@ fun SlaughterhouseSearchScreen(
                         Text(if (activeFilterCount > 0) "Filtre ($activeFilterCount)" else "Filtre")
                     }
                 }
-
                 if (activeFilterCount > 0) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         @Composable
@@ -226,45 +292,56 @@ fun SlaughterhouseSearchScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(listings) { l ->
-                    FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                    val sid = l.sellerId
+                    val isFav = sid != null && favoriteSellerIds.contains(sid)
+                    FigmaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { detailListingId = l.id },
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(text = "${l.type} · ${l.category}", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = "Yaş: ${l.ageMonths ?: "-"} ay • Adet: ${l.quantity}",
-                                color = Color(0xFF64748B),
-                            )
-                            Text(
-                                text = "Satıcı: ${l.sellerName ?: (l.sellerId ?: "-")}",
-                                color = Color(0xFF94A3B8),
-                            )
-                            Text(
-                                text = "Fiyat: ${l.price ?: "-"}",
-                                color = Color(0xFF64748B),
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            val sid = l.sellerId
-                            val isFav = sid != null && favoriteSellers.any { it.sellerId == sid }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = "${l.type} · ${l.category}", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        text = "Yaş: ${l.ageMonths ?: "-"} ay • Adet: ${l.quantity}",
+                                        color = Color(0xFF64748B),
+                                    )
+                                    Text(
+                                        text = "Satıcı: ${l.sellerCompanyName ?: l.sellerName ?: (l.sellerId ?: "-")}",
+                                        color = Color(0xFF94A3B8),
+                                    )
+                                    Text(text = "Fiyat: ${l.price ?: "-"}", color = Color(0xFF64748B))
+                                }
+                                IconButton(
+                                    enabled = sid != null && favSubmittingSellerId != sid,
+                                    onClick = { if (sid != null) favSubmittingSellerId = sid },
+                                    modifier = Modifier.size(36.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = if (isFav) "Favoriden çıkar" else "Favorile",
+                                        tint = if (isFav) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                FigmaPrimaryButton(
-                                    text = "Teklif ver",
-                                    onClick = {
-                                        offerDialogListing = l
-                                        offerPriceText = l.price?.toString() ?: ""
-                                        offerQuantityText = l.quantity.toString()
-                                        offerNoteText = ""
-                                        offerSubmitError = null
-                                    },
+                                FigmaSecondaryButton(
+                                    text = "Detay",
+                                    onClick = { detailListingId = l.id },
                                     modifier = Modifier.weight(1f),
                                 )
-                                FigmaSecondaryButton(
-                                    text = if (isFav) "Favoriden çıkar" else "Favorile",
-                                    enabled = sid != null && favSubmittingSellerId != sid,
-                                    onClick = { if (sid != null) favSubmittingSellerId = sid },
+                                FigmaPrimaryButton(
+                                    text = "Teklif ver",
+                                    onClick = { offerForListing = l },
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -275,92 +352,26 @@ fun SlaughterhouseSearchScreen(
         }
     }
 
-    val dialogListing = offerDialogListing
-    if (dialogListing != null) {
-        AlertDialog(
-            onDismissRequest = { if (!offerSubmitting) offerDialogListing = null },
-            title = { Text("Teklif ver") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(text = dialogListing.type, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(
-                        value = offerPriceText,
-                        onValueChange = { offerPriceText = it },
-                        label = { Text("Fiyat (kg)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = offerQuantityText,
-                        onValueChange = { offerQuantityText = it },
-                        label = { Text("Adet") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = offerNoteText,
-                        onValueChange = { offerNoteText = it },
-                        label = { Text("Not (opsiyonel)") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    offerSubmitError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = !offerSubmitting, onClick = { offerSubmitting = true }) { Text("Gönder") }
-            },
-            dismissButton = {
-                TextButton(enabled = !offerSubmitting, onClick = { offerDialogListing = null }) { Text("Vazgeç") }
-            },
-        )
-
-        LaunchedEffect(offerSubmitting) {
-            if (!offerSubmitting) return@LaunchedEffect
-
-            offerSubmitError = null
-            val price = parseDoubleOrNull(offerPriceText)
-            val qty = offerQuantityText.trim().replace(',', '.').toIntOrNull()
-
-            if (price == null || qty == null || qty <= 0) {
-                offerSubmitError = "Fiyat ve adet geçerli olmalı."
-                offerSubmitting = false
-                return@LaunchedEffect
-            }
-
-            val res = marketService.createSlaughterhouseListingOffer(
-                listingId = dialogListing.id,
-                payload = CreateSlaughterhouseListingOfferPayload(
-                    pricePerKg = price,
-                    quantity = qty,
-                    note = offerNoteText.trim().ifBlank { null },
-                ),
-            )
-
-            if (!res.success) {
-                offerSubmitError = res.message ?: "Teklif gönderilemedi"
-                offerSubmitting = false
-                return@LaunchedEffect
-            }
-
-            offerSubmitting = false
-            offerDialogListing = null
-            refresh()
-        }
-    }
-
     LaunchedEffect(favSubmittingSellerId) {
         val sid = favSubmittingSellerId ?: return@LaunchedEffect
         favSubmittingSellerId = null
-
-        val isFav = favoriteSellers.any { it.sellerId == sid }
-        val res = if (isFav) marketService.removeSlaughterhouseFavoriteSeller(sid)
-        else marketService.addSlaughterhouseFavoriteSeller(sid)
-
-        if (!res.success) {
+        val res = marketService.toggleFavorite(sid)
+        if (res.success) {
+            refreshFavorites()
+        } else {
             error = res.message ?: "Favori işlemi başarısız"
-            return@LaunchedEffect
         }
-        refreshFavorites()
+    }
+
+    LaunchedEffect(startChatWithUserId) {
+        val otherId = startChatWithUserId ?: return@LaunchedEffect
+        startChatWithUserId = null
+        val res = marketService.getOrCreateConversation(otherId)
+        if (res.success && res.data != null) {
+            selectedConversation = res.data
+        } else {
+            error = res.message ?: "Sohbet başlatılamadı"
+        }
     }
 
     if (filterOpen) {
@@ -370,27 +381,22 @@ fun SlaughterhouseSearchScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(
-                        start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp
-                    ),
+                    .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(text = "Filtrele", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-
                 Text(text = "Sıralama", fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     FigmaSecondaryButton("En yeni", onClick = { filters = filters.copy(sort = "newest") }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Ucuzdan", onClick = { filters = filters.copy(sort = "priceasc") }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Pahalıdan", onClick = { filters = filters.copy(sort = "pricedesc") }, modifier = Modifier.weight(1f))
                 }
-
                 Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     FigmaSecondaryButton("Tümü", onClick = { filters = filters.copy(category = null) }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Küçükbaş", onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Büyükbaş", onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) }, modifier = Modifier.weight(1f))
                 }
-
                 OutlinedTextField(
                     value = filters.type,
                     onValueChange = { filters = filters.copy(type = it) },
@@ -398,7 +404,6 @@ fun SlaughterhouseSearchScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = filters.ageMin,
@@ -415,7 +420,6 @@ fun SlaughterhouseSearchScreen(
                         singleLine = true,
                     )
                 }
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = filters.quantityMin,
@@ -432,7 +436,6 @@ fun SlaughterhouseSearchScreen(
                         singleLine = true,
                     )
                 }
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = filters.priceMin,
@@ -449,7 +452,6 @@ fun SlaughterhouseSearchScreen(
                         singleLine = true,
                     )
                 }
-
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FigmaSecondaryButton("Sıfırla", onClick = { filters = ShFilters() }, modifier = Modifier.weight(1f))
                     FigmaPrimaryButton("Uygula", onClick = { filterOpen = false }, modifier = Modifier.weight(1f))
@@ -458,4 +460,3 @@ fun SlaughterhouseSearchScreen(
         }
     }
 }
-
