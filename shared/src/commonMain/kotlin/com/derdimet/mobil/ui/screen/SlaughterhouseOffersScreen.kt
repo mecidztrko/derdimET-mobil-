@@ -1,5 +1,6 @@
 package com.derdimet.mobil.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,13 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +29,11 @@ import com.derdimet.mobil.model.FavoriteMeatBuyerDto
 import com.derdimet.mobil.model.FavoriteSellerDto
 import com.derdimet.mobil.model.SlaughterhouseListingOfferDto
 import com.derdimet.mobil.service.MarketService
+import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.FigmaPrimaryButton
+import com.derdimet.mobil.ui.components.FigmaSecondaryButton
+import com.derdimet.mobil.ui.components.FigmaSegmentedTabs
+import com.derdimet.mobil.ui.components.FigmaStyle
 
 @Composable
 fun SlaughterhouseOffersScreen(
@@ -45,6 +48,7 @@ fun SlaughterhouseOffersScreen(
     var favSubmittingSellerId by remember { mutableStateOf<Long?>(null) }
     var favSubmittingBuyerId by remember { mutableStateOf<Long?>(null) }
 
+    var tabIndex by remember { mutableStateOf(0) } // 0: offers, 1: messages
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
 
@@ -103,113 +107,132 @@ fun SlaughterhouseOffersScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(FigmaStyle.ScreenBg)
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = "Tekliflerim", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(text = "Verdiğiniz teklifler ve mesajlar.", color = Color.Gray)
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text = "💬 Teklifler & Mesajlar", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(text = "Verdiğiniz teklifler ve sohbetler", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        }
 
-        Text(text = "Teklifler", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+        FigmaSegmentedTabs(
+            leftLabel = "Teklifler",
+            rightLabel = "Mesajlar",
+            selectedLeft = tabIndex == 0,
+            onLeft = { tabIndex = 0 },
+            onRight = { tabIndex = 1 },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         when {
-            isLoading -> Text("Yükleniyor...", color = Color.Gray)
+            isLoading -> Text("Yükleniyor...", color = Color(0xFF64748B))
             error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(offers) { o ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            tabIndex == 0 -> {
+                if (offers.isEmpty()) {
+                    Text("Henüz teklif yok.", color = Color(0xFF64748B))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(text = o.listingType ?: "İlan", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = "Fiyat: ${o.pricePerKg ?: "-"} • Adet: ${o.quantity ?: "-"} • Durum: ${o.status}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                            Text(
-                                text = "Satıcı: ${o.sellerName ?: (o.sellerId?.toString() ?: "-")}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                            val sid = o.sellerId
-                            val isFav = sid != null && favoriteSellers.any { it.sellerId == sid }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                OutlinedButton(
-                                    onClick = { startChatWithUserId = sid },
-                                    enabled = sid != null,
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text("Satıcı ile sohbet")
-                                }
-                                OutlinedButton(
-                                    enabled = sid != null && favSubmittingSellerId != sid,
-                                    onClick = { favSubmittingSellerId = sid },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(if (isFav) "Favoriden çıkar" else "Favorile")
+                        items(offers) { o ->
+                            FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(text = o.listingType ?: "İlan", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        text = "Fiyat: ${o.pricePerKg ?: "-"} • Adet: ${o.quantity ?: "-"} • Durum: ${o.status}",
+                                        color = Color(0xFF64748B),
+                                    )
+                                    Text(
+                                        text = "Satıcı: ${o.sellerName ?: (o.sellerId?.toString() ?: "-")}",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 12.sp,
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    val sid = o.sellerId
+                                    val isFav = sid != null && favoriteSellers.any { it.sellerId == sid }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        FigmaPrimaryButton(
+                                            text = "Sohbet",
+                                            enabled = sid != null,
+                                            onClick = { startChatWithUserId = sid },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        FigmaSecondaryButton(
+                                            text = if (isFav) "Favoriden çıkar" else "Favorile",
+                                            enabled = sid != null && favSubmittingSellerId != sid,
+                                            onClick = { favSubmittingSellerId = sid },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.padding(top = 8.dp))
-        Text(text = "Mesajlar", fontWeight = FontWeight.SemiBold)
-        when {
-            isLoading -> Text("Yükleniyor...", color = Color.Gray)
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            conversations.isEmpty() -> Text("Henüz mesaj yok.", color = Color.Gray)
-            else -> LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(conversations) { c ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            else -> {
+                if (conversations.isEmpty()) {
+                    Text("Henüz mesaj yok.", color = Color(0xFF64748B))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                text = c.otherUserName ?: (c.otherUserEmail ?: "Kullanıcı #${c.otherUserId}"),
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(text = "Son mesaj: ${c.lastMessageAt ?: "-"}", color = Color.Gray, modifier = Modifier.padding(top = 6.dp))
-                            val otherId = c.otherUserId
-                            val otherRole = c.otherUserRole
-                            val isMeatBuyer = otherRole == "MEAT_BUYER"
-                            val isSeller = otherRole == "ANIMAL_SELLER"
-                            val isFavBuyer = isMeatBuyer && favoriteBuyers.any { it.buyerId == otherId }
-                            val isFavSeller = isSeller && favoriteSellers.any { it.sellerId == otherId }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                OutlinedButton(
-                                    onClick = { selectedConversation = c },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("Sohbet") }
-                                if (isMeatBuyer || isSeller) {
-                                    OutlinedButton(
-                                        enabled =
-                                            favSubmittingBuyerId != otherId &&
-                                                    favSubmittingSellerId != otherId,
-                                        onClick = {
-                                            if (isMeatBuyer) favSubmittingBuyerId = otherId
-                                            else favSubmittingSellerId = otherId
-                                        },
-                                        modifier = Modifier.weight(1f),
+                        items(conversations) { c ->
+                            FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = c.otherUserName ?: (c.otherUserEmail ?: "Kullanıcı #${c.otherUserId}"),
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = "Son mesaj: ${c.lastMessageAt ?: "-"}",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 12.sp,
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    val otherId = c.otherUserId
+                                    val otherRole = c.otherUserRole
+                                    val isMeatBuyer = otherRole == "MEAT_BUYER"
+                                    val isSeller = otherRole == "ANIMAL_SELLER"
+                                    val isFavBuyer = isMeatBuyer && favoriteBuyers.any { it.buyerId == otherId }
+                                    val isFavSeller = isSeller && favoriteSellers.any { it.sellerId == otherId }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
-                                        val isFav = if (isMeatBuyer) isFavBuyer else isFavSeller
-                                        Text(if (isFav) "Favoriden çıkar" else "Favorile")
+                                        FigmaPrimaryButton(
+                                            text = "Sohbet",
+                                            onClick = { selectedConversation = c },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        if (isMeatBuyer || isSeller) {
+                                            val isFav = if (isMeatBuyer) isFavBuyer else isFavSeller
+                                            FigmaSecondaryButton(
+                                                text = if (isFav) "Favoriden çıkar" else "Favorile",
+                                                enabled = favSubmittingBuyerId != otherId && favSubmittingSellerId != otherId,
+                                                onClick = {
+                                                    if (isMeatBuyer) favSubmittingBuyerId = otherId
+                                                    else favSubmittingSellerId = otherId
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -1,13 +1,16 @@
 package com.derdimet.mobil.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.CreateMeatSaleRequestPayload
 import com.derdimet.mobil.service.MarketService
+import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.FigmaPrimaryButton
+import com.derdimet.mobil.ui.components.FigmaStyle
 
 @Composable
 fun SlaughterhouseCreateMeatSaleRequestScreen(
@@ -39,31 +45,80 @@ fun SlaughterhouseCreateMeatSaleRequestScreen(
     var success by remember { mutableStateOf<String?>(null) }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(FigmaStyle.ScreenBg)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = "İlan ver", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(text = "Et ilanı oluşturun.", color = Color.Gray)
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text = "🥩 Et İlanı Oluştur", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Et alıcıları bu ilana teklif verecek.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                )
+                Text(
+                    text = "İpucu: Başlık net olursa daha hızlı teklif gelir (örn: “Dana kuşbaşı - günlük kesim”).",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                )
+            }
+        }
 
-        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Başlık") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = meatType, onValueChange = { meatType = it }, label = { Text("Et türü") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = quantityText, onValueChange = { quantityText = it }, label = { Text("Miktar (kg)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Açıklama (opsiyonel)") },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(text = "İlan detayları", fontWeight = FontWeight.SemiBold)
 
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        success?.let { Text(it, color = Color(0xFF166534)) }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Başlık") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
 
-        Button(
-            enabled = !submitting,
-            onClick = { submitting = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-        ) { Text(if (submitting) "Gönderiliyor..." else "İlanı Gönder") }
+                OutlinedTextField(
+                    value = meatType,
+                    onValueChange = { meatType = it },
+                    label = { Text("Et türü (örn: dana, kuzu)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = { quantityText = it },
+                    label = { Text("Miktar (kg)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Açıklama (opsiyonel)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                )
+
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                success?.let { Text(it, color = Color(0xFF166534)) }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FigmaPrimaryButton(
+                        text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
+                        enabled = !submitting,
+                        onClick = { submitting = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 
     LaunchedEffect(submitting) {

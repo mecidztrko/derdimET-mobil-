@@ -1,5 +1,7 @@
 package com.derdimet.mobil.ui.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,13 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,8 +27,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,7 +39,24 @@ import com.derdimet.mobil.model.AnimalCategory
 import com.derdimet.mobil.model.FavoriteSellerDto
 import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.service.MarketService
+import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.FigmaPrimaryButton
+import com.derdimet.mobil.ui.components.FigmaSecondaryButton
+import com.derdimet.mobil.ui.components.FigmaStyle
 
+private data class ShFilters(
+    val sort: String = "newest",
+    val category: AnimalCategory? = null,
+    val type: String = "",
+    val ageMin: String = "",
+    val ageMax: String = "",
+    val quantityMin: String = "",
+    val quantityMax: String = "",
+    val priceMin: String = "",
+    val priceMax: String = "",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SlaughterhouseSearchScreen(
     marketService: MarketService,
@@ -46,15 +67,9 @@ fun SlaughterhouseSearchScreen(
     var favoriteSellers by remember { mutableStateOf<List<FavoriteSellerDto>>(emptyList()) }
     var favSubmittingSellerId by remember { mutableStateOf<Long?>(null) }
 
-    var category by remember { mutableStateOf<AnimalCategory?>(null) }
-    var typeQuery by remember { mutableStateOf("") }
-    var ageMinText by remember { mutableStateOf("") }
-    var ageMaxText by remember { mutableStateOf("") }
-    var quantityMinText by remember { mutableStateOf("") }
-    var quantityMaxText by remember { mutableStateOf("") }
-    var priceMinText by remember { mutableStateOf("") }
-    var priceMaxText by remember { mutableStateOf("") }
-    var sort by remember { mutableStateOf("newest") }
+    var query by remember { mutableStateOf("") }
+    var filters by remember { mutableStateOf(ShFilters()) }
+    var filterOpen by remember { mutableStateOf(false) }
 
     var offerDialogListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     var offerPriceText by remember { mutableStateOf("") }
@@ -71,18 +86,28 @@ fun SlaughterhouseSearchScreen(
         error = null
 
         val res = marketService.searchSlaughterhouseAnimalListingsFiltered(
-            category = category?.name,
-            type = typeQuery.takeIf { it.isNotBlank() },
-            ageMin = parseIntOrNull(ageMinText),
-            ageMax = parseIntOrNull(ageMaxText),
-            quantityMin = parseIntOrNull(quantityMinText),
-            quantityMax = parseIntOrNull(quantityMaxText),
-            priceMin = parseDoubleOrNull(priceMinText),
-            priceMax = parseDoubleOrNull(priceMaxText),
-            sort = sort,
+            category = filters.category?.name,
+            type = filters.type.takeIf { it.isNotBlank() } ?: query.takeIf { it.isNotBlank() },
+            ageMin = parseIntOrNull(filters.ageMin),
+            ageMax = parseIntOrNull(filters.ageMax),
+            quantityMin = parseIntOrNull(filters.quantityMin),
+            quantityMax = parseIntOrNull(filters.quantityMax),
+            priceMin = parseDoubleOrNull(filters.priceMin),
+            priceMax = parseDoubleOrNull(filters.priceMax),
+            sort = filters.sort,
         )
 
-        if (res.success) listings = res.data ?: emptyList() else error = res.message ?: "İlanlar alınamadı"
+        if (res.success) {
+            val all = res.data ?: emptyList()
+            listings =
+                if (query.isBlank()) all
+                else all.filter {
+                    val q = query.trim().lowercase()
+                    it.type.lowercase().contains(q) || (it.sellerName ?: "").lowercase().contains(q)
+                }
+        } else {
+            error = res.message ?: "İlanlar alınamadı"
+        }
         isLoading = false
     }
 
@@ -95,105 +120,103 @@ fun SlaughterhouseSearchScreen(
         }
     }
 
-    LaunchedEffect(
-        category,
-        typeQuery,
-        ageMinText,
-        ageMaxText,
-        quantityMinText,
-        quantityMaxText,
-        priceMinText,
-        priceMaxText,
-        sort,
-    ) { refresh() }
+    LaunchedEffect(filters, query) { refresh() }
 
     LaunchedEffect(Unit) {
         refreshFavorites()
     }
 
+    val activeFilterCount = remember(filters) {
+        listOf(
+            filters.sort != "newest",
+            filters.category != null,
+            filters.type.isNotBlank(),
+            filters.ageMin.isNotBlank(),
+            filters.ageMax.isNotBlank(),
+            filters.quantityMin.isNotBlank(),
+            filters.quantityMax.isNotBlank(),
+            filters.priceMin.isNotBlank(),
+            filters.priceMax.isNotBlank(),
+        ).count { it }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = "Arama", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(text = "Satıcıların açtığı açık ilanları filtreleyin.", color = Color.Gray)
+        FigmaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(text = "🐄 Hayvan İlanları", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(text = "Satıcıların aktif ilanları", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                    }
+                    Text(
+                        text = "${listings.size} ilan",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .background(Color(0xFFF1F5F9), RoundedCornerShape(999.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
 
-        Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = { category = null }, modifier = Modifier.weight(1f)) { Text("Tümü") }
-            OutlinedButton(onClick = { category = AnimalCategory.KUCUKBAS }, modifier = Modifier.weight(1f)) { Text("Küçükbaş") }
-            OutlinedButton(onClick = { category = AnimalCategory.BUYUKBAS }, modifier = Modifier.weight(1f)) { Text("Büyükbaş") }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Hayvan türü, satıcı...") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedButton(onClick = { filterOpen = true }) {
+                        Text(if (activeFilterCount > 0) "Filtre ($activeFilterCount)" else "Filtre")
+                    }
+                }
+
+                if (activeFilterCount > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        @Composable
+                        fun Chip(text: String, onClear: () -> Unit) {
+                            TextButton(
+                                onClick = onClear,
+                                modifier = Modifier.background(Color(0xFF1B3A6B).copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
+                            ) {
+                                Text("$text  ✕", color = Color(0xFF1B3A6B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        if (filters.sort != "newest") Chip(
+                            text = when (filters.sort) {
+                                "priceasc" -> "Ucuzdan"
+                                "pricedesc" -> "Pahalıdan"
+                                else -> "Sıralama"
+                            }
+                        ) { filters = filters.copy(sort = "newest") }
+                        if (filters.category != null) Chip(filters.category!!.name) { filters = filters.copy(category = null) }
+                        if (filters.type.isNotBlank()) Chip("Tür: ${filters.type}") { filters = filters.copy(type = "") }
+                        if (filters.ageMin.isNotBlank()) Chip("Yaş≥${filters.ageMin}") { filters = filters.copy(ageMin = "") }
+                        if (filters.ageMax.isNotBlank()) Chip("Yaş≤${filters.ageMax}") { filters = filters.copy(ageMax = "") }
+                        if (filters.quantityMin.isNotBlank()) Chip("Adet≥${filters.quantityMin}") { filters = filters.copy(quantityMin = "") }
+                        if (filters.quantityMax.isNotBlank()) Chip("Adet≤${filters.quantityMax}") { filters = filters.copy(quantityMax = "") }
+                        if (filters.priceMin.isNotBlank()) Chip("₺≥${filters.priceMin}") { filters = filters.copy(priceMin = "") }
+                        if (filters.priceMax.isNotBlank()) Chip("₺≤${filters.priceMax}") { filters = filters.copy(priceMax = "") }
+                    }
+                }
+            }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        OutlinedTextField(
-            value = typeQuery,
-            onValueChange = { typeQuery = it },
-            label = { Text("Tür (ör: Merinos)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                value = ageMinText,
-                onValueChange = { ageMinText = it },
-                label = { Text("Yaş min (ay)") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = ageMaxText,
-                onValueChange = { ageMaxText = it },
-                label = { Text("Yaş max (ay)") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-        }
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                value = quantityMinText,
-                onValueChange = { quantityMinText = it },
-                label = { Text("Adet min") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = quantityMaxText,
-                onValueChange = { quantityMaxText = it },
-                label = { Text("Adet max") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-        }
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                value = priceMinText,
-                onValueChange = { priceMinText = it },
-                label = { Text("Fiyat min") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = priceMaxText,
-                onValueChange = { priceMaxText = it },
-                label = { Text("Fiyat max") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-        }
-
-        Text(text = "Sıralama", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = { sort = "newest" }, modifier = Modifier.weight(1f)) { Text("En yeni") }
-            OutlinedButton(onClick = { sort = "priceasc" }, modifier = Modifier.weight(1f)) { Text("Ucuzdan") }
-            OutlinedButton(onClick = { sort = "pricedesc" }, modifier = Modifier.weight(1f)) { Text("Pahalıdan") }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
 
         when {
             isLoading -> Text("Yükleniyor...", color = Color.Gray)
@@ -203,37 +226,32 @@ fun SlaughterhouseSearchScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(listings) { l ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(text = l.type, fontWeight = FontWeight.SemiBold)
+                    FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(text = "${l.type} · ${l.category}", fontWeight = FontWeight.SemiBold)
                             Text(
-                                text = "Kategori: ${l.category} • Yaş: ${l.ageMonths ?: "-"} • Adet: ${l.quantity}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                            Text(
-                                text = "Fiyat: ${l.price ?: "-"} • Durum: ${l.status}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp),
+                                text = "Yaş: ${l.ageMonths ?: "-"} ay • Adet: ${l.quantity}",
+                                color = Color(0xFF64748B),
                             )
                             Text(
                                 text = "Satıcı: ${l.sellerName ?: (l.sellerId ?: "-")}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp),
+                                color = Color(0xFF94A3B8),
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Fiyat: ${l.price ?: "-"}",
+                                color = Color(0xFF64748B),
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             val sid = l.sellerId
                             val isFav = sid != null && favoriteSellers.any { it.sellerId == sid }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                OutlinedButton(
+                                FigmaPrimaryButton(
+                                    text = "Teklif ver",
                                     onClick = {
                                         offerDialogListing = l
                                         offerPriceText = l.price?.toString() ?: ""
@@ -242,16 +260,13 @@ fun SlaughterhouseSearchScreen(
                                         offerSubmitError = null
                                     },
                                     modifier = Modifier.weight(1f),
-                                ) {
-                                    Text("Teklif ver")
-                                }
-                                OutlinedButton(
+                                )
+                                FigmaSecondaryButton(
+                                    text = if (isFav) "Favoriden çıkar" else "Favorile",
                                     enabled = sid != null && favSubmittingSellerId != sid,
-                                    onClick = { favSubmittingSellerId = sid },
+                                    onClick = { if (sid != null) favSubmittingSellerId = sid },
                                     modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(if (isFav) "Favoriden çıkar" else "Favorile")
-                                }
+                                )
                             }
                         }
                     }
@@ -346,6 +361,101 @@ fun SlaughterhouseSearchScreen(
             return@LaunchedEffect
         }
         refreshFavorites()
+    }
+
+    if (filterOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { filterOpen = false },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(text = "Filtrele", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+                Text(text = "Sıralama", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FigmaSecondaryButton("En yeni", onClick = { filters = filters.copy(sort = "newest") }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Ucuzdan", onClick = { filters = filters.copy(sort = "priceasc") }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Pahalıdan", onClick = { filters = filters.copy(sort = "pricedesc") }, modifier = Modifier.weight(1f))
+                }
+
+                Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FigmaSecondaryButton("Tümü", onClick = { filters = filters.copy(category = null) }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Küçükbaş", onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Büyükbaş", onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) }, modifier = Modifier.weight(1f))
+                }
+
+                OutlinedTextField(
+                    value = filters.type,
+                    onValueChange = { filters = filters.copy(type = it) },
+                    label = { Text("Tür (ör: Merinos)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = filters.ageMin,
+                        onValueChange = { filters = filters.copy(ageMin = it) },
+                        label = { Text("Yaş min (ay)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = filters.ageMax,
+                        onValueChange = { filters = filters.copy(ageMax = it) },
+                        label = { Text("Yaş max (ay)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = filters.quantityMin,
+                        onValueChange = { filters = filters.copy(quantityMin = it) },
+                        label = { Text("Adet min") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = filters.quantityMax,
+                        onValueChange = { filters = filters.copy(quantityMax = it) },
+                        label = { Text("Adet max") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = filters.priceMin,
+                        onValueChange = { filters = filters.copy(priceMin = it) },
+                        label = { Text("Fiyat min") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = filters.priceMax,
+                        onValueChange = { filters = filters.copy(priceMax = it) },
+                        label = { Text("Fiyat max") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FigmaSecondaryButton("Sıfırla", onClick = { filters = ShFilters() }, modifier = Modifier.weight(1f))
+                    FigmaPrimaryButton("Uygula", onClick = { filterOpen = false }, modifier = Modifier.weight(1f))
+                }
+            }
+        }
     }
 }
 

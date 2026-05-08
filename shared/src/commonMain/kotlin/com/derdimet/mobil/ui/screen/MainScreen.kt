@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.Arrangement
 import com.derdimet.mobil.repository.AnimalCategoryFilter
 import com.derdimet.mobil.repository.PreferencesRepository
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.ui.components.DashboardTopBar
 import com.derdimet.mobil.viewmodel.SellerViewModel
 
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -90,28 +89,6 @@ fun MainScreen(
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            DashboardTopBar(
-                title = when (userRole) {
-                    UserRole.ADMIN -> "Yönetici"
-                    UserRole.ANIMAL_SELLER -> "Satıcı Paneli"
-                    UserRole.MEAT_BUYER -> "Alıcı"
-                    UserRole.SLAUGHTERHOUSE -> "Kesimhane"
-                },
-                subtitle = when (selectedTab) {
-                    Tab.Home -> "Günlük operasyon özetiniz"
-                    Tab.Explore -> "Modülleri keşfedin"
-                    Tab.BuyerProfile, Tab.SellerProfile -> "Hesap ve tercihler"
-                    Tab.BuyerSearch -> "İlanları keşfet ve filtrele"
-                    Tab.BuyerOffers -> "Tekliflerin ve mesajların"
-                    Tab.SellerSearch -> "Kesimhane ilanlarını incele"
-                    Tab.SellerOffers -> "Tekliflerin ve mesajların"
-                    Tab.SellerCreate -> "Yeni hayvan ilanı oluştur"
-                    Tab.SlaughterhouseProfile -> "Kişi bilgileri ve favoriler"
-                    Tab.SlaughterhouseSearch -> "Satıcı hayvan ilanlarını filtrele"
-                    Tab.SlaughterhouseOffers -> "Teklifler ve mesajlar"
-                    Tab.SlaughterhouseCreate -> "Et ilanı oluştur"
-                }
-            )
             if (userRole == UserRole.ADMIN) {
                 AdminNotSupportedScreen(onLogout = onLogout)
             } else {

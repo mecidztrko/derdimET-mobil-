@@ -22,7 +22,7 @@ Projede `.idea/gradle.xml` Gradle JVM icin `jbr-17` onculugunde ayarlandi; sende
 ./gradlew :composeApp:installDebug
 ```
 
-Debug API tabani: `http://10.0.2.2:8080` (emulatorden makinedeki Spring).  
+Debug API tabani: `http://10.0.2.2:8081` (emulatorden makinedeki Spring).  
 Release: `https://api.derdimet.com` (`composeApp/build.gradle.kts` icinde `buildConfigField`).
 
 `derdimET` backend varsayilanlari:
@@ -32,7 +32,7 @@ Release: `https://api.derdimet.com` (`composeApp/build.gradle.kts` icinde `build
 Gerekirse `local.properties` ile mobil URL override edebilirsin:
 
 ```properties
-MOBILE_DEBUG_API_BASE_URL=http://10.0.2.2:8080
+MOBILE_DEBUG_API_BASE_URL=http://10.0.2.2:8081
 MOBILE_RELEASE_API_BASE_URL=https://api.derdimet.com
 ```
 

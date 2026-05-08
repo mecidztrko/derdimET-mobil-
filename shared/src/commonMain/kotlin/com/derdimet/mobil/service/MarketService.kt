@@ -3,6 +3,10 @@ package com.derdimet.mobil.service
 import com.derdimet.mobil.model.*
 
 class MarketService(private val apiService: ApiService) {
+    suspend fun fetchMe(): ApiResponse<MeResponse> {
+        return apiService.me()
+    }
+
     suspend fun fetchSlaughterhouseFavoriteSellers(): ApiResponse<List<FavoriteSellerDto>> {
         return apiService.get("/api/slaughterhouse/profile/favorites/sellers")
     }

@@ -95,6 +95,7 @@ fun RegisterScreen(
                     Row(modifier = Modifier.padding(bottom = 14.dp)) {
                         Chip(label = "Et alıcı", selected = role == UserRole.MEAT_BUYER, onClick = { viewModel.onRoleChange(UserRole.MEAT_BUYER) })
                         Chip(label = "Hayvan satıcı", selected = role == UserRole.ANIMAL_SELLER, onClick = { viewModel.onRoleChange(UserRole.ANIMAL_SELLER) })
+                        Chip(label = "Kesimhane işletmecisi", selected = role == UserRole.SLAUGHTERHOUSE, onClick = { viewModel.onRoleChange(UserRole.SLAUGHTERHOUSE) })
                     }
 
                     Text(text = "Hesap türü", style = sectionLabelStyle())

@@ -2,16 +2,15 @@ package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +23,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.FigmaSecondaryButton
+import com.derdimet.mobil.ui.components.FigmaSegmentedTabs
+import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.model.BuyerMeatOfferItemDto
 import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.service.MarketService
@@ -32,6 +35,7 @@ import com.derdimet.mobil.service.MarketService
 fun BuyerMyOffersScreen(
     marketService: MarketService,
 ) {
+    var activeOffersTab by remember { mutableStateOf(true) } // true=offers, false=messages
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var offers by remember { mutableStateOf<List<BuyerMeatOfferItemDto>>(emptyList()) }
@@ -62,69 +66,74 @@ fun BuyerMyOffersScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(FigmaStyle.ScreenBg)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text = "Tekliflerim", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(text = "Verdiğiniz teklifler ve mesajlar.", color = Color.Gray)
+        Text(text = "Teklifler ve mesajlar.", color = Color(0xFF94A3B8))
 
-        Text(text = "Teklifler", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+        FigmaSegmentedTabs(
+            leftLabel = "Teklifler",
+            rightLabel = "Mesajlar",
+            selectedLeft = activeOffersTab,
+            onLeft = { activeOffersTab = true },
+            onRight = { activeOffersTab = false },
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         when {
             isLoading -> Text("Yükleniyor...", color = Color.Gray)
             error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(offers) { item ->
-                    Card(
+            else -> {
+                if (activeOffersTab) {
+                    LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                text = item.title ?: "Et ilanı",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Teklif: ${item.pricePerKg ?: "-"} • Miktar: ${item.quantity ?: "-"} • Durum: ${item.status}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                            Text(
-                                text = "Kesimhane: ${item.slaughterhouseName ?: item.slaughterhouseId ?: "-"}",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
+                        items(offers) { item ->
+                            FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(text = item.title ?: "Et ilanı", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        text = "Teklif: ${item.pricePerKg ?: "-"} • Miktar: ${item.quantity ?: "-"} • Durum: ${item.status}",
+                                        color = Color(0xFF64748B),
+                                    )
+                                    Text(
+                                        text = "Kesimhane: ${item.slaughterhouseName ?: item.slaughterhouseId ?: "-"}",
+                                        color = Color(0xFF94A3B8),
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        Text(text = "Mesajlar", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
-        when {
-            isLoading -> Text("Yükleniyor...", color = Color.Gray)
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            conversations.isEmpty() -> Text("Henüz mesaj yok.", color = Color.Gray)
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(conversations) { c ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(text = c.otherUserName ?: (c.otherUserEmail ?: "Kullanıcı #${c.otherUserId}"), fontWeight = FontWeight.SemiBold)
-                            Text(text = "Son mesaj: ${c.lastMessageAt ?: "-"}", color = Color.Gray, modifier = Modifier.padding(top = 6.dp))
-                            OutlinedButton(onClick = { selectedConversation = c }, modifier = Modifier.padding(top = 10.dp)) {
-                                Text("Sohbet")
+                } else {
+                    if (conversations.isEmpty()) {
+                        Text("Henüz mesaj yok.", color = Color.Gray)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(conversations) { c ->
+                                FigmaCard(modifier = Modifier.fillMaxWidth()) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = c.otherUserName ?: (c.otherUserEmail ?: "Kullanıcı #${c.otherUserId}"),
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            text = "Son mesaj: ${c.lastMessageAt ?: "-"}",
+                                            color = Color(0xFF94A3B8),
+                                        )
+                                        FigmaSecondaryButton(
+                                            text = "Sohbet",
+                                            onClick = { selectedConversation = c },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

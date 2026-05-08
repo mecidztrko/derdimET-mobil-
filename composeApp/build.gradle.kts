@@ -18,7 +18,7 @@ val debugApiBaseUrl = (
     localProps.getProperty("MOBILE_DEBUG_API_BASE_URL")
         ?: (findProperty("MOBILE_DEBUG_API_BASE_URL") as String?)
     )
-    ?: "http://10.0.2.2:8080"
+    ?: "http://10.0.2.2:8081"
 val releaseApiBaseUrl = (
     localProps.getProperty("MOBILE_RELEASE_API_BASE_URL")
         ?: (findProperty("MOBILE_RELEASE_API_BASE_URL") as String?)

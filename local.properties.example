@@ -6,10 +6,10 @@ sdk.dir=
 
 # Mobil uygulamanin backend URL'leri (opsiyonel, ihtiyaca gore ac):
 # Android emulator -> host makinedeki Spring (derdimET web backend)
-# MOBILE_DEBUG_API_BASE_URL=http://10.0.2.2:8080
+# MOBILE_DEBUG_API_BASE_URL=http://10.0.2.2:8081
 #
 # Gercek cihaz icin LAN IP:
-# MOBILE_DEBUG_API_BASE_URL=http://192.168.1.50:8080
+# MOBILE_DEBUG_API_BASE_URL=http://192.168.1.50:8081
 #
 # Release ortami:
 # MOBILE_RELEASE_API_BASE_URL=https://api.derdimet.com

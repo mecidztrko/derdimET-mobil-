@@ -6,15 +6,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFBB86FC),
-    secondary = Color(0xFF03DAC6),
-    tertiary = Color(0xFF3700B3)
+    primary = Color(0xFF8FB4FF),
+    secondary = Color(0xFF89D2FF),
+    tertiary = Color(0xFF7EE7C5),
+    background = Color(0xFF0B1220),
+    surface = Color(0xFF111A2C),
+    onPrimary = Color(0xFF0B1220),
+    onBackground = Color(0xFFE6EAF2),
+    onSurface = Color(0xFFE6EAF2),
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6200EE),
-    secondary = Color(0xFF03DAC6),
-    tertiary = Color(0xFF018786)
+    primary = Color(0xFF1B3A6B), // Figma primary
+    secondary = Color(0xFF1D5BE6),
+    tertiary = Color(0xFF16A34A),
+    background = Color(0xFFF5F7FA),
+    surface = Color(0xFFFFFFFF),
+    onPrimary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0F172A),
+    onSurface = Color(0xFF0F172A),
 )
 
 @Composable
