@@ -2,6 +2,8 @@ package com.derdimet.mobil.repository
 
 import com.derdimet.mobil.service.ApiService
 import com.derdimet.mobil.model.AuthUser
+import com.derdimet.mobil.model.MeResponse
+import com.derdimet.mobil.model.UpdateProfilePayload
 import com.derdimet.mobil.model.toAuthUser
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
@@ -78,6 +80,33 @@ class AuthRepository(
             val response = apiService.me()
             if (response.success) response.data.toAuthUser() else null
         } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun forgotPassword(email: String): String? {
+        return try {
+            val response = apiService.forgotPassword(email)
+            if (response.success) null else response.message ?: "İşlem başarısız"
+        } catch (e: Exception) {
+            e.message ?: "Sunucuya bağlanılamadı"
+        }
+    }
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): String? {
+        return try {
+            val response = apiService.resetPassword(email, code, newPassword)
+            if (response.success) null else response.message ?: "Şifre güncellenemedi"
+        } catch (e: Exception) {
+            e.message ?: "Sunucuya bağlanılamadı"
+        }
+    }
+
+    suspend fun updateProfile(payload: UpdateProfilePayload): MeResponse? {
+        return try {
+            val response = apiService.patch<MeResponse>("/api/me", payload)
+            if (response.success) response.data else null
+        } catch (_: Exception) {
             null
         }
     }

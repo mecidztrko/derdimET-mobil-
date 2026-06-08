@@ -29,11 +29,12 @@ import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.AnimalCategory
 import com.derdimet.mobil.model.CreateSellerAnimalListingPayload
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.DerdimFormCard
+import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
-import com.derdimet.mobil.ui.components.ImageCarousel
+import com.derdimet.mobil.ui.components.DerdimImageUploadSection
 
 @Composable
 fun SellerCreateListingScreen(
@@ -54,28 +55,13 @@ fun SellerCreateListingScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FigmaStyle.ScreenBg)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "🐄 Hayvan İlanı Oluştur", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "Kesimhaneler bu ilanı görüp teklif verebilir.",
-                    color = FigmaStyle.MutedText,
-                    fontSize = 12.sp,
-                )
-            }
-        }
-
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
+    Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(title = "Hayvan İlanı", subtitle = "Kesimhaneler teklif verebilir")
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+        DerdimFormCard(title = "İlan Bilgileri", subtitle = "Kategori ve hayvan detayları") {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FigmaSecondaryButton(
                         text = if (category == AnimalCategory.KUCUKBAS) "✓ Küçükbaş" else "Küçükbaş",
@@ -150,49 +136,15 @@ fun SellerCreateListingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                 )
-            }
         }
 
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(text = "Görseller", fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = "Ekleyeceğin URL'ler aşağıda görünür. Mobil cihazdan dosya yüklemek için URL alanına yüklediğin görselin URL'sini de yapıştırabilirsin.",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 12.sp,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    OutlinedTextField(
-                        value = imageUrlInput,
-                        onValueChange = { imageUrlInput = it },
-                        label = { Text("Görsel URL") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                    )
-                    FigmaSecondaryButton(
-                        text = "Ekle",
-                        onClick = {
-                            val u = imageUrlInput.trim()
-                            if (u.isNotBlank()) {
-                                imageUrls.add(u)
-                                imageUrlInput = ""
-                            }
-                        },
-                    )
-                }
-                if (imageUrls.isNotEmpty()) {
-                    ImageCarousel(imageUrls = imageUrls.toList())
-                    FigmaSecondaryButton(
-                        text = "Tüm görselleri kaldır",
-                        onClick = { imageUrls.clear() },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
+        DerdimImageUploadSection(
+            marketService = marketService,
+            imageUrls = imageUrls.toList(),
+            onImageUrlsChange = { imageUrls.clear(); imageUrls.addAll(it) },
+            imageUrlInput = imageUrlInput,
+            onImageUrlInputChange = { imageUrlInput = it },
+        )
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         success?.let { Text(it, color = Color(0xFF166534)) }
@@ -207,6 +159,7 @@ fun SellerCreateListingScreen(
         )
 
         Spacer(Modifier.height(20.dp))
+        }
     }
 
     LaunchedEffect(submitting) {

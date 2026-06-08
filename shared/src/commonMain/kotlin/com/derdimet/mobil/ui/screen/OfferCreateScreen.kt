@@ -21,23 +21,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.derdimet.mobil.ui.components.DetailTopBar
-import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.DerdimFormCard
+import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.theme.DerdimColors
 
-/**
- * Genel teklif verme formu. 3 rol için ortak; her role'a özgü mantık çağrı tarafından submit handler ile sağlanır.
- *
- * @param contextLine Üstte gösterilecek "ilanın özet satırı".
- * @param showQuantityAsInt Adet alanı tamsayı olarak istenir mi (hayvan teklifi) yoksa kg gibi double olarak mı.
- * @param submit Gönderim handler'ı: (pricePerKg, quantity, note) → (success, errorMsg).
- */
 @Composable
 fun OfferCreateScreen(
     title: String,
@@ -55,73 +48,26 @@ fun OfferCreateScreen(
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg),
-    ) {
-        DetailTopBar(title = "Teklif ver", onBack = onBack, isFavorited = null)
-
+    Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(title = "Teklif Ver", showBack = true, onBack = onBack)
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    if (!subtitle.isNullOrBlank()) {
-                        Text(text = subtitle, color = Color(0xFF64748B), fontSize = 13.sp)
-                    }
-                    if (!contextLine.isNullOrBlank()) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(text = contextLine, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                    }
+            DerdimFormCard(title = title, subtitle = listOfNotNull(subtitle, contextLine).joinToString(" · ").ifBlank { null }) {}
+            Column {
+                DerdimFormCard(title = "Teklif Bilgileri", subtitle = "Fiyat ve miktar girin") {
+                    OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text("Kg fiyatı (₺)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = qtyText, onValueChange = { qtyText = it }, label = { Text(quantityLabel) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = noteText, onValueChange = { noteText = it }, label = { Text("Not (opsiyonel)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                 }
             }
-
-            FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = priceText,
-                        onValueChange = { priceText = it },
-                        label = { Text("Kg fiyatı (₺)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = qtyText,
-                        onValueChange = { qtyText = it },
-                        label = { Text(quantityLabel) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = noteText,
-                        onValueChange = { noteText = it },
-                        label = { Text("Not (opsiyonel)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                    )
-                    error?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                FigmaSecondaryButton(
-                    text = "Vazgeç",
-                    onClick = onBack,
-                    enabled = !submitting,
-                    modifier = Modifier.weight(1f),
-                )
-                FigmaPrimaryButton(
-                    text = if (submitting) "Gönderiliyor..." else "Teklifi gönder",
-                    enabled = !submitting,
-                    onClick = { submitting = true },
-                    modifier = Modifier.weight(1f),
-                )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FigmaSecondaryButton(text = "Vazgeç", onClick = onBack, enabled = !submitting, modifier = Modifier.weight(1f))
+                FigmaPrimaryButton(text = if (submitting) "Gönderiliyor..." else "Teklifi Gönder", enabled = !submitting, onClick = { submitting = true }, modifier = Modifier.weight(1f))
             }
         }
     }

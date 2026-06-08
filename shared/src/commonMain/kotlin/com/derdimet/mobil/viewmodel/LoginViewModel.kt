@@ -1,5 +1,6 @@
 package com.derdimet.mobil.viewmodel
 
+import com.derdimet.mobil.model.DemoAccounts
 import com.derdimet.mobil.model.UserRole
 import com.derdimet.mobil.repository.AuthRepository
 import com.derdimet.mobil.repository.PreferencesRepository
@@ -47,6 +48,12 @@ class LoginViewModel(
 
     fun onRememberMeToggle() {
         _rememberMe.value = !_rememberMe.value
+    }
+
+    fun demoLogin(role: UserRole, onSuccess: (UserRole) -> Unit) {
+        _email.value = DemoAccounts.email(role)
+        _password.value = DemoAccounts.PASSWORD
+        login(onSuccess)
     }
 
     fun login(onSuccess: (UserRole) -> Unit) {

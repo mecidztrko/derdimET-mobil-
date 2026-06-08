@@ -210,4 +210,89 @@ class MarketService(private val apiService: ApiService) {
     ): ApiResponse<UploadedImageResponse> {
         return apiService.uploadImage(bytes, filename, contentType)
     }
+
+    suspend fun fetchSlaughterhouseIncomingMeatOffers(): ApiResponse<List<SlaughterhouseIncomingMeatOfferDto>> {
+        return apiService.get("/api/slaughterhouse/meat-offers")
+    }
+
+    suspend fun acceptSlaughterhouseMeatOffer(offerId: Long): ApiResponse<SlaughterhouseIncomingMeatOfferDto> {
+        return apiService.post("/api/slaughterhouse/meat-offers/$offerId/accept", body = mapOf<String, String>())
+    }
+
+    suspend fun rejectSlaughterhouseMeatOffer(offerId: Long): ApiResponse<SlaughterhouseIncomingMeatOfferDto> {
+        return apiService.post("/api/slaughterhouse/meat-offers/$offerId/reject", body = mapOf<String, String>())
+    }
+
+    suspend fun fetchSellerIncomingListingOffers(): ApiResponse<List<SellerIncomingListingOfferDto>> {
+        return apiService.get("/api/seller/incoming-listing-offers")
+    }
+
+    suspend fun acceptSellerListingOffer(offerId: Long): ApiResponse<SellerIncomingListingOfferDto> {
+        return apiService.post("/api/seller/listing-offers/$offerId/accept", body = mapOf<String, String>())
+    }
+
+    suspend fun rejectSellerListingOffer(offerId: Long): ApiResponse<SellerIncomingListingOfferDto> {
+        return apiService.post("/api/seller/listing-offers/$offerId/reject", body = mapOf<String, String>())
+    }
+
+    suspend fun fetchConversationOffers(conversationId: Long): ApiResponse<List<ConversationOfferDto>> {
+        return apiService.get("/api/messaging/conversations/$conversationId/offers")
+    }
+
+    suspend fun fetchMySlaughterhouseMeatSaleRequests(): ApiResponse<List<MeatSaleRequestDto>> {
+        return apiService.get("/api/slaughterhouse/meat-sale-requests")
+    }
+
+    suspend fun fetchMySlaughterhouseAnimalPurchaseRequests(): ApiResponse<List<AnimalPurchaseRequestDto>> {
+        return apiService.get("/api/slaughterhouse/animal-purchase-requests")
+    }
+
+    suspend fun fetchNotificationSummary(): ApiResponse<NotificationSummaryDto> {
+        return apiService.get("/api/notifications/summary")
+    }
+
+    suspend fun closeSellerAnimalListing(listingId: Long): ApiResponse<SellerAnimalListingDto> {
+        return apiService.post("/api/seller/animal-listings/$listingId/close", body = mapOf<String, String>())
+    }
+
+    suspend fun reopenSellerAnimalListing(listingId: Long): ApiResponse<SellerAnimalListingDto> {
+        return apiService.post("/api/seller/animal-listings/$listingId/reopen", body = mapOf<String, String>())
+    }
+
+    suspend fun updateSellerAnimalListing(
+        listingId: Long,
+        payload: UpdateSellerAnimalListingPayload,
+    ): ApiResponse<SellerAnimalListingDto> {
+        return apiService.patch("/api/seller/animal-listings/$listingId", payload)
+    }
+
+    suspend fun closeMeatSaleRequest(saleRequestId: Long): ApiResponse<MeatSaleRequestDto> {
+        return apiService.post("/api/slaughterhouse/meat-sale-requests/$saleRequestId/close", body = mapOf<String, String>())
+    }
+
+    suspend fun reopenMeatSaleRequest(saleRequestId: Long): ApiResponse<MeatSaleRequestDto> {
+        return apiService.post("/api/slaughterhouse/meat-sale-requests/$saleRequestId/reopen", body = mapOf<String, String>())
+    }
+
+    suspend fun updateMeatSaleRequest(
+        saleRequestId: Long,
+        payload: UpdateMeatSaleRequestPayload,
+    ): ApiResponse<MeatSaleRequestDto> {
+        return apiService.patch("/api/slaughterhouse/meat-sale-requests/$saleRequestId", payload)
+    }
+
+    suspend fun closeAnimalPurchaseRequest(requestId: Long): ApiResponse<AnimalPurchaseRequestDto> {
+        return apiService.post("/api/slaughterhouse/animal-purchase-requests/$requestId/close", body = mapOf<String, String>())
+    }
+
+    suspend fun reopenAnimalPurchaseRequest(requestId: Long): ApiResponse<AnimalPurchaseRequestDto> {
+        return apiService.post("/api/slaughterhouse/animal-purchase-requests/$requestId/reopen", body = mapOf<String, String>())
+    }
+
+    suspend fun updateAnimalPurchaseRequest(
+        requestId: Long,
+        payload: UpdateAnimalPurchasePayload,
+    ): ApiResponse<AnimalPurchaseRequestDto> {
+        return apiService.patch("/api/slaughterhouse/animal-purchase-requests/$requestId", payload)
+    }
 }

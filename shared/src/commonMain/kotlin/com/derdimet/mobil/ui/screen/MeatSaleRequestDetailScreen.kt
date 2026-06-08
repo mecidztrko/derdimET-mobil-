@@ -1,6 +1,7 @@
 package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,8 +12,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,24 +30,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.MeatSaleRequestDto
+import com.derdimet.mobil.platform.rememberShareTextAction
+import com.derdimet.mobil.ui.components.DerdimReviewsPlaceholder
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.util.formatNumber
-import com.derdimet.mobil.ui.components.DetailRow
-import com.derdimet.mobil.ui.components.DetailTopBar
-import com.derdimet.mobil.ui.components.FigmaCard
+import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.components.DetailGridCell
 import com.derdimet.mobil.ui.components.ImageCarousel
+import com.derdimet.mobil.ui.components.InitialsAvatar
 import com.derdimet.mobil.ui.components.OwnerCard
+import com.derdimet.mobil.ui.theme.DerdimColors
+import com.derdimet.mobil.ui.theme.DerdimTypeStyle
+import com.derdimet.mobil.util.formatNumber
 
-/** Kesimhane tarafından oluşturulan et ilanı detayı (et alıcısı görüntüler). */
 @Composable
 fun MeatSaleRequestDetailScreen(
     saleRequestId: Long,
@@ -51,102 +65,88 @@ fun MeatSaleRequestDetailScreen(
     var error by remember(saleRequestId) { mutableStateOf<String?>(null) }
     var sale by remember(saleRequestId) { mutableStateOf<MeatSaleRequestDto?>(null) }
     var favSubmitting by remember { mutableStateOf(false) }
+    val shareText = rememberShareTextAction()
 
-    suspend fun load() {
+    LaunchedEffect(saleRequestId) {
         loading = true
         error = null
         val res = marketService.fetchMeatSaleRequestDetail(saleRequestId)
-        if (res.success) {
-            sale = res.data
-        } else {
-            error = res.message ?: "Detay yüklenemedi"
-        }
+        if (res.success) sale = res.data else error = res.message ?: "Detay yüklenemedi"
         loading = false
     }
 
-    LaunchedEffect(saleRequestId) { load() }
-
     val s = sale
-    Column(
-        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg),
-    ) {
-        DetailTopBar(
-            title = s?.title ?: "Et ilanı",
+    Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(
+            title = "İlan Detayı",
+            showBack = true,
             onBack = onBack,
-            isFavorited = s?.isFavoritedByMe,
-            onToggleFavorite = if (s?.slaughterhouseId != null) {
-                { favSubmitting = true }
-            } else null,
+            action = {
+                Row {
+                    IconButton(onClick = {
+                        shareText("derdimET ilanı: ${s?.title ?: saleRequestId} — ${s?.meatType ?: ""}")
+                    }) { Icon(Icons.Default.Share, null) }
+                    IconButton(onClick = { if (s?.slaughterhouseId != null) favSubmitting = true }) {
+                        Icon(if (s?.isFavoritedByMe == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (s?.isFavoritedByMe == true) Color(0xFFE05C2A) else DerdimColors.MutedForeground)
+                    }
+                }
+            },
         )
-
         when {
-            loading -> Box(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-            ) { Text(text = "Yükleniyor...", color = Color.Gray) }
-            error != null -> Box(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-            ) { Text(text = error ?: "Hata", color = MaterialTheme.colorScheme.error) }
-            s != null -> Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ImageCarousel(imageUrls = s.imageUrls)
-
-                FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(text = s.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text(
-                            text = s.meatType,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        DetailRow("Hayvan kategorisi", s.animalCategory?.name)
-                        DetailRow("Et bölgesi", s.cut)
-                        DetailRow("Toplam miktar", s.quantity?.let { "${formatNumber(it)} kg" })
-                        DetailRow("Kg fiyatı", s.pricePerKg?.let { "${formatNumber(it)} ₺" })
-                        DetailRow("Paketleme", s.packaging)
-                        DetailRow("Konum", s.location)
-                        if (!s.description.isNullOrBlank()) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(text = s.description, color = Color(0xFF334155), fontSize = 13.sp)
+            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Yükleniyor...", color = DerdimColors.MutedForeground) }
+            error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error ?: "Hata", color = MaterialTheme.colorScheme.error) }
+            s != null -> Box(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
+                    ImageCarousel(imageUrls = s.imageUrls)
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(s.meatType, modifier = Modifier.background(DerdimColors.Secondary, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 4.dp), color = DerdimColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Text(s.title, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = DerdimColors.Foreground)
+                        Row(Modifier.fillMaxWidth().background(DerdimColors.Primary.copy(0.08f), RoundedCornerShape(16.dp)).padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text("Satış Fiyatı", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+                                Text("${s.pricePerKg?.let { formatNumber(it) } ?: "-"} ₺ / kg", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = DerdimColors.Primary)
+                            }
+                            Text("Onaylı", modifier = Modifier.background(DerdimColors.Green100, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 4.dp), color = DerdimColors.Green700, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DetailGridCell("Tür", s.meatType, Modifier.weight(1f))
+                            DetailGridCell("Miktar", "${s.quantity?.let { formatNumber(it) } ?: "-"} kg", Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DetailGridCell("Ortalama Ağırlık", "${s.quantity?.let { formatNumber(it) } ?: "-"} kg", Modifier.weight(1f))
+                            DetailGridCell("Konum", s.location ?: s.slaughterhouseCity ?: "—", Modifier.weight(1f))
+                        }
+                        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(16.dp)).padding(16.dp)) {
+                            Text("İlan Açıklaması", fontWeight = FontWeight.SemiBold)
+                            Text(s.description ?: "Açıklama bulunmuyor.", fontSize = 14.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 8.dp))
+                        }
+                        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(16.dp)).padding(16.dp)) {
+                            Text("Satıcı", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                            OwnerCard(name = s.slaughterhouseName, companyName = s.slaughterhouseCompanyName, city = s.slaughterhouseCity, onClick = { s.slaughterhouseId?.let(onOpenSlaughterhouseProfile) })
+                        }
+                        DerdimReviewsPlaceholder()
+                        Row(Modifier.fillMaxWidth().background(DerdimColors.Amber50, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Amber100, RoundedCornerShape(16.dp)).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Default.Shield, null, tint = DerdimColors.Amber600)
+                            Column {
+                                Text("Güvenli Alışveriş", fontWeight = FontWeight.SemiBold)
+                                Text("Ürünü görmeden ödeme yapmayın. Sağlık sertifikalarını kontrol edin.", fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 4.dp))
+                            }
                         }
                     }
                 }
-
-                FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(text = "İlan sahibi", fontWeight = FontWeight.SemiBold)
-                        OwnerCard(
-                            name = s.slaughterhouseName,
-                            companyName = s.slaughterhouseCompanyName,
-                            city = s.slaughterhouseCity,
-                            onClick = { s.slaughterhouseId?.let(onOpenSlaughterhouseProfile) },
-                        )
+                Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), shadowElevation = 12.dp, color = Color.White) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        InitialsAvatar(s.slaughterhouseCompanyName ?: s.slaughterhouseName, size = 40)
+                        Column(Modifier.weight(1f)) {
+                            Text(s.slaughterhouseCompanyName ?: s.slaughterhouseName ?: "Satıcı", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(s.slaughterhouseCity ?: "Kesimhane", fontSize = 11.sp, color = DerdimColors.MutedForeground)
+                        }
+                        FigmaSecondaryButton("Mesaj", onClick = { s.slaughterhouseId?.let(onMessage) }, enabled = s.slaughterhouseId != null)
+                        FigmaPrimaryButton("Teklif Ver", onClick = { onMakeOffer(s) })
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    FigmaSecondaryButton(
-                        text = "Mesaj at",
-                        onClick = { s.slaughterhouseId?.let(onMessage) },
-                        enabled = s.slaughterhouseId != null,
-                        modifier = Modifier.weight(1f),
-                    )
-                    FigmaPrimaryButton(
-                        text = "Teklif ver",
-                        onClick = { onMakeOffer(s) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -156,11 +156,10 @@ fun MeatSaleRequestDetailScreen(
             val sid = sale?.slaughterhouseId
             if (sid != null) {
                 val res = marketService.toggleFavorite(sid)
-                if (res.success) {
-                    sale = sale?.copy(isFavoritedByMe = res.data?.isFavoritedByMe == true)
-                }
+                if (res.success) sale = sale?.copy(isFavoritedByMe = res.data?.isFavoritedByMe == true)
             }
             favSubmitting = false
         }
     }
 }
+

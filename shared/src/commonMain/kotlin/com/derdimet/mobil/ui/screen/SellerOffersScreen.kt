@@ -3,179 +3,213 @@ package com.derdimet.mobil.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.ConversationItemDto
+import com.derdimet.mobil.model.OfferStatus
 import com.derdimet.mobil.model.SellerAnimalOfferItemDto
+import com.derdimet.mobil.model.SellerIncomingListingOfferDto
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.ui.components.FigmaCard
-import com.derdimet.mobil.ui.components.FigmaPrimaryButton
-import com.derdimet.mobil.ui.components.FigmaSecondaryButton
-import com.derdimet.mobil.ui.components.FigmaSegmentedTabs
+import com.derdimet.mobil.ui.components.DerdimActionBadge
+import com.derdimet.mobil.ui.components.DerdimFilterTabs
+import com.derdimet.mobil.ui.components.DerdimOfferCard
+import com.derdimet.mobil.ui.components.DerdimStatsRow
+import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.components.OfferCardData
+import com.derdimet.mobil.ui.components.initialsFrom
+import com.derdimet.mobil.ui.theme.DerdimColors
+import kotlin.math.abs
 
 @Composable
-fun SellerOffersScreen(
-    marketService: MarketService,
-) {
-    var activeOffersTab by remember { mutableStateOf(true) }
+fun SellerOffersScreen(marketService: MarketService) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var offers by remember { mutableStateOf<List<SellerAnimalOfferItemDto>>(emptyList()) }
-    var conversations by remember { mutableStateOf<List<ConversationItemDto>>(emptyList()) }
+    var incoming by remember { mutableStateOf<List<SellerIncomingListingOfferDto>>(emptyList()) }
+    var sent by remember { mutableStateOf<List<SellerAnimalOfferItemDto>>(emptyList()) }
+    var section by remember { mutableStateOf("incoming") }
+    var statusFilter by remember { mutableStateOf("") }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var actingOfferId by remember { mutableStateOf<Long?>(null) }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
-    var refreshTick by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refreshTick) {
+    val chatConvo = selectedConversation
+    if (chatConvo != null) {
+        ChatScreen(
+            marketService = marketService,
+            conversationId = chatConvo.conversationId,
+            title = chatConvo.otherUserName ?: (chatConvo.otherUserEmail ?: "Sohbet"),
+            onBack = { selectedConversation = null },
+        )
+        return
+    }
+
+    LaunchedEffect(refreshKey) {
         isLoading = true
         error = null
-        val resOffers = marketService.fetchMyAnimalOffers()
-        val resConvos = marketService.fetchConversations()
-        if (resOffers.success) offers = resOffers.data ?: emptyList() else error = resOffers.message ?: "Teklifler alınamadı"
-        if (resConvos.success) conversations = resConvos.data ?: emptyList() else error = error ?: (resConvos.message ?: "Mesajlar alınamadı")
+        val resIncoming = marketService.fetchSellerIncomingListingOffers()
+        val resSent = marketService.fetchMyAnimalOffers()
+        if (resIncoming.success) incoming = resIncoming.data ?: emptyList()
+        else error = resIncoming.message ?: "Gelen teklifler alınamadı"
+        if (resSent.success) sent = resSent.data ?: emptyList()
+        else if (error == null) error = resSent.message ?: "Gönderilen teklifler alınamadı"
         isLoading = false
+    }
+
+    val activeStatuses = if (section == "incoming") incoming.map { it.status } else sent.map { it.status }
+    val pending = activeStatuses.count { it == OfferStatus.PENDING }
+    val accepted = activeStatuses.count { it == OfferStatus.ACCEPTED }
+    val rejected = activeStatuses.count { it == OfferStatus.REJECTED }
+
+    Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(
+            title = "Teklifler",
+            action = { if (pending > 0) DerdimActionBadge("$pending bekliyor") },
+        )
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            DerdimFilterTabs(
+                tabs = listOf(
+                    Triple("incoming", "Gelen", incoming.size),
+                    Triple("sent", "Gönderilen", sent.size),
+                ),
+                selectedKey = section,
+                onSelect = {
+                    section = it
+                    statusFilter = ""
+                },
+            )
+            DerdimStatsRow(pending, accepted, rejected)
+            DerdimFilterTabs(
+                tabs = listOf(
+                    Triple("", "Tümü", activeStatuses.size),
+                    Triple("pending", "Bekleyen", pending),
+                    Triple("accepted", "Kabul", accepted),
+                    Triple("rejected", "Reddedilen", rejected),
+                ),
+                selectedKey = statusFilter,
+                onSelect = { statusFilter = it },
+            )
+            when {
+                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                section == "incoming" -> {
+                    val list = incoming.filterOffersByStatus(statusFilter)
+                    if (list.isEmpty()) {
+                        Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
+                                DerdimOfferCard(
+                                    offer = item.toOfferCardData(index),
+                                    showActions = true,
+                                    onAccept = if (item.status == OfferStatus.PENDING) {
+                                        { actingOfferId = item.offerId }
+                                    } else null,
+                                    onReject = if (item.status == OfferStatus.PENDING) {
+                                        { actingOfferId = -item.offerId }
+                                    } else null,
+                                    onMessage = item.slaughterhouseId?.let { uid ->
+                                        { startChatWithUserId = uid }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    val list = sent.filterSentOffersByStatus(statusFilter)
+                    if (list.isEmpty()) {
+                        Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
+                                DerdimOfferCard(
+                                    offer = item.toOfferCardData(index),
+                                    showActions = item.status != OfferStatus.PENDING,
+                                    onMessage = item.request.slaughterhouseId?.let { uid -> { startChatWithUserId = uid } },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     LaunchedEffect(startChatWithUserId) {
         val otherId = startChatWithUserId ?: return@LaunchedEffect
         startChatWithUserId = null
         val res = marketService.getOrCreateConversation(otherId)
-        if (res.success && res.data != null) {
-            selectedConversation = res.data
-        } else {
-            error = res.message ?: "Sohbet başlatılamadı"
-        }
+        if (res.success && res.data != null) selectedConversation = res.data
+        else error = res.message ?: "Sohbet başlatılamadı"
     }
 
-    val convo = selectedConversation
-    if (convo != null) {
-        ChatScreen(
-            marketService = marketService,
-            conversationId = convo.conversationId,
-            title = convo.otherUserName ?: (convo.otherUserEmail ?: "Sohbet"),
-            onBack = { selectedConversation = null },
-        )
-        return
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "💬 Teklifler & Mesajlar", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(text = "Kesimhanelerle yaptığın görüşmeler", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FigmaSecondaryButton(
-                        text = "Yenile",
-                        enabled = !isLoading,
-                        onClick = { refreshTick++ },
-                        modifier = Modifier.weight(1f),
-                    )
-                    FigmaSecondaryButton(
-                        text = if (activeOffersTab) "Teklifler" else "Mesajlar",
-                        onClick = { activeOffersTab = !activeOffersTab },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        FigmaSegmentedTabs(
-            leftLabel = "Teklifler",
-            rightLabel = "Mesajlar",
-            selectedLeft = activeOffersTab,
-            onLeft = { activeOffersTab = true },
-            onRight = { activeOffersTab = false },
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        when {
-            isLoading -> Text("Yükleniyor...", color = Color(0xFF64748B))
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            else -> {
-                if (activeOffersTab) {
-                    LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(offers) { o ->
-                            FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(text = o.request.title, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        text = "Fiyat: ${o.pricePerKg} ₺/kg • Durum: ${o.status}",
-                                        color = Color(0xFF64748B),
-                                    )
-                                    Text(
-                                        text = "Kesimhane: ${o.request.slaughterhouseName ?: (o.request.slaughterhouseId ?: "-")}",
-                                        color = Color(0xFF94A3B8),
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        FigmaPrimaryButton(
-                                            text = "Sohbet",
-                                            onClick = {
-                                                val otherId = o.request.slaughterhouseId
-                                                if (otherId != null) startChatWithUserId = otherId
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if (conversations.isEmpty()) {
-                        Text("Henüz mesaj yok.", color = Color(0xFF64748B))
-                    } else {
-                        LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(conversations) { c ->
-                                FigmaCard(modifier = Modifier.fillMaxWidth()) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(
-                                            text = c.otherUserName ?: (c.otherUserEmail ?: "Kullanıcı #${c.otherUserId}"),
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
-                                        Text(
-                                            text = "Son mesaj: ${c.lastMessageAt ?: "-"}",
-                                            color = Color(0xFF94A3B8),
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        FigmaPrimaryButton(
-                                            text = "Sohbet",
-                                            onClick = { selectedConversation = c },
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    LaunchedEffect(actingOfferId) {
+        val id = actingOfferId ?: return@LaunchedEffect
+        actingOfferId = null
+        val accept = id > 0
+        val offerId = abs(id)
+        val res = if (accept) marketService.acceptSellerListingOffer(offerId)
+        else marketService.rejectSellerListingOffer(offerId)
+        if (!res.success) error = res.message ?: "İşlem başarısız"
+        refreshKey++
     }
 }
 
+private fun List<SellerIncomingListingOfferDto>.filterOffersByStatus(filter: String) = when (filter) {
+    "pending" -> filter { it.status == OfferStatus.PENDING }
+    "accepted" -> filter { it.status == OfferStatus.ACCEPTED }
+    "rejected" -> filter { it.status == OfferStatus.REJECTED }
+    else -> this
+}
+
+private fun List<SellerAnimalOfferItemDto>.filterSentOffersByStatus(filter: String) = when (filter) {
+    "pending" -> filter { it.status == OfferStatus.PENDING }
+    "accepted" -> filter { it.status == OfferStatus.ACCEPTED }
+    "rejected" -> filter { it.status == OfferStatus.REJECTED }
+    else -> this
+}
+
+private fun SellerIncomingListingOfferDto.toOfferCardData(index: Int) = OfferCardData(
+    id = offerId,
+    listingTitle = "${listingType ?: "İlan"} · ${listingCategory ?: ""}".trim(),
+    partyName = slaughterhouseName ?: "Kesimhane",
+    partyCompany = null,
+    partyInitials = initialsFrom(slaughterhouseName),
+    offerAmount = pricePerKg,
+    originalPrice = pricePerKg,
+    quantityLabel = quantity?.let { "$it adet" },
+    status = status,
+    dateLabel = createdAt.take(10),
+    city = null,
+    index = index,
+)
+
+private fun SellerAnimalOfferItemDto.toOfferCardData(index: Int) = OfferCardData(
+    id = offerId.toLong(),
+    listingTitle = request.title,
+    partyName = request.slaughterhouseCompanyName ?: request.slaughterhouseName ?: "Kesimhane",
+    partyCompany = request.slaughterhouseCompanyName,
+    partyInitials = initialsFrom(request.slaughterhouseName),
+    offerAmount = pricePerKg,
+    originalPrice = pricePerKg,
+    quantityLabel = animalCount?.let { "$it adet" },
+    status = status,
+    dateLabel = createdAt.take(10),
+    city = request.slaughterhouseCity,
+    index = index,
+)

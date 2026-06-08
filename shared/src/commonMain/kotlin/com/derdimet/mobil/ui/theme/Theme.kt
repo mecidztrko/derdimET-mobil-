@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.derdimet.mobil.ui.theme.DerdimColors
 
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF8FB4FF),
@@ -17,14 +18,15 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF1B3A6B), // Figma primary
-    secondary = Color(0xFF1D5BE6),
-    tertiary = Color(0xFF16A34A),
-    background = Color(0xFFF5F7FA),
-    surface = Color(0xFFFFFFFF),
-    onPrimary = Color(0xFFFFFFFF),
-    onBackground = Color(0xFF0F172A),
-    onSurface = Color(0xFF0F172A),
+    primary = DerdimColors.Primary,
+    secondary = DerdimColors.Secondary,
+    tertiary = DerdimColors.Success,
+    background = DerdimColors.Background,
+    surface = DerdimColors.Card,
+    onPrimary = DerdimColors.PrimaryForeground,
+    onBackground = DerdimColors.Foreground,
+    onSurface = DerdimColors.Foreground,
+    outline = DerdimColors.Border,
 )
 
 @Composable

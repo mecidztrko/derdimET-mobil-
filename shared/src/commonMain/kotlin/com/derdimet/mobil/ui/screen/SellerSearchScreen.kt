@@ -45,10 +45,17 @@ import com.derdimet.mobil.model.AnimalPurchaseRequestDto
 import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.model.CreateAnimalOfferPayload
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.ui.components.FigmaCard
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Tune
+import com.derdimet.mobil.ui.components.DerdimAnimalPurchaseCard
+import com.derdimet.mobil.ui.components.DerdimTopBar
+import com.derdimet.mobil.ui.components.FilterChipButton
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
+import com.derdimet.mobil.ui.components.MarketplaceSearchBar
+import com.derdimet.mobil.ui.theme.DerdimColors
 
 private data class SellerReqFilters(
     val sort: String = "newest",
@@ -167,135 +174,51 @@ fun SellerSearchScreen(
         return
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text(text = "🔎 Kesimhane Talepleri", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text(text = "Kesimhanelerin açtığı alım talepleri", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                    }
-                    Text(
-                        text = "${requests.size} ilan",
-                        color = Color(0xFF64748B),
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .background(Color(0xFFF1F5F9), RoundedCornerShape(999.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        label = { Text("Ara (başlık, açıklama)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                    )
-                    OutlinedButton(onClick = { filterOpen = true }) {
-                        Text(if (filters.category != null) "Filtre (1)" else "Filtre")
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (filters.category != null) {
-                        TextButton(
-                            onClick = { filters = filters.copy(category = null) },
-                            modifier = Modifier.background(Color(0xFF1B3A6B).copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
-                        ) {
-                            Text("Kategori: ${filters.category!!.name}  ✕", color = Color(0xFF1B3A6B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    if (filters.sort != "newest") {
-                        TextButton(
-                            onClick = { filters = filters.copy(sort = "newest") },
-                            modifier = Modifier.background(Color(0xFF1B3A6B).copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
-                        ) {
-                            Text("Sıralama  ✕", color = Color(0xFF1B3A6B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
+    val activeFilterCount = remember(filters) {
+        listOf(filters.category != null, filters.sort != "newest").count { it }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(showLogo = true, subtitle = "Kesimhane Talepleri", action = {
+            IconButton(onClick = { filterOpen = true }) {
+                Box {
+                    Icon(Icons.Default.Tune, contentDescription = "Filtre", tint = DerdimColors.Primary)
+                    if (activeFilterCount > 0) {
+                        Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(DerdimColors.Destructive, CircleShape))
                     }
                 }
             }
-        }
-
-        when {
-            isLoading -> Text("Yükleniyor...", color = Color(0xFF64748B))
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(requests) { r ->
-                    val sid = r.slaughterhouseId
-                    val isFav = sid != null && favoriteSlaughterhouseIds.contains(sid)
-                    FigmaCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { detailRequestId = r.id.toLong() },
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = r.title, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        text = "Kategori: ${r.animalCategory ?: "-"} • Adet: ${r.quantity ?: "-"}",
-                                        color = Color(0xFF64748B),
-                                    )
-                                    Text(
-                                        text = "Kesimhane: ${r.slaughterhouseCompanyName ?: r.slaughterhouseName ?: "-"}",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 12.sp,
-                                    )
-                                    r.description?.takeIf { it.isNotBlank() }?.let {
-                                        Text(text = it, color = Color(0xFF94A3B8), fontSize = 12.sp)
-                                    }
-                                }
-                                IconButton(
-                                    enabled = sid != null && favSubmittingId != sid,
-                                    onClick = { if (sid != null) favSubmittingId = sid },
-                                    modifier = Modifier.size(36.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = if (isFav) "Favoriden çıkar" else "Favorile",
-                                        tint = if (isFav) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                FigmaSecondaryButton(
-                                    text = "Detay",
-                                    onClick = { detailRequestId = r.id.toLong() },
-                                    modifier = Modifier.weight(1f),
-                                )
-                                FigmaPrimaryButton(
-                                    text = "Teklif ver",
-                                    onClick = { offerForRequest = r },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
+        })
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            MarketplaceSearchBar(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "Talep başlığı veya kesimhane ara...",
+                onFilterClick = { filterOpen = true },
+                activeFilterCount = activeFilterCount,
+            )
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChipButton("Tümü", filters.category == null, onClick = { filters = filters.copy(category = null) })
+                FilterChipButton("Küçükbaş", filters.category == AnimalCategory.KUCUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) })
+                FilterChipButton("Büyükbaş", filters.category == AnimalCategory.BUYUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) })
+            }
+            Text("${requests.size} talep bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+            when {
+                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                requests.isEmpty() -> Text("Uygun talep bulunamadı.", color = DerdimColors.MutedForeground)
+                else -> LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(requests.size) { index ->
+                        val r = requests[index]
+                        val sid = r.slaughterhouseId
+                        DerdimAnimalPurchaseCard(
+                            item = r,
+                            index = index,
+                            isFavorited = sid != null && favoriteSlaughterhouseIds.contains(sid),
+                            onFavoriteClick = { if (sid != null) favSubmittingId = sid },
+                            onClick = { detailRequestId = r.id.toLong() },
+                            onOfferClick = { offerForRequest = r },
+                        )
                     }
                 }
             }

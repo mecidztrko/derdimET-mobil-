@@ -1,8 +1,11 @@
 package com.derdimet.mobil.service
 
 import com.derdimet.mobil.model.ApiResponse
+import com.derdimet.mobil.model.EmailOnlyRequest
 import com.derdimet.mobil.model.LoginResponse
 import com.derdimet.mobil.model.MeResponse
+import com.derdimet.mobil.model.MessageResponse
+import com.derdimet.mobil.model.PasswordResetRequest
 import com.derdimet.mobil.model.UploadedImageResponse
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -72,6 +75,17 @@ class ApiService(
         )
     }
 
+    suspend fun forgotPassword(email: String): ApiResponse<MessageResponse> {
+        return post("/api/auth/password/forgot", EmailOnlyRequest(email.trim()))
+    }
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): ApiResponse<MessageResponse> {
+        return post(
+            "/api/auth/password/reset",
+            PasswordResetRequest(email.trim(), code.trim(), newPassword),
+        )
+    }
+
     suspend fun register(payload: Map<String, Any?>): ApiResponse<Unit> {
         val response: HttpResponse = client.post("/api/register") {
             setBody(payload)
@@ -113,6 +127,22 @@ class ApiService(
         return try {
             val response: HttpResponse = client.get(endpoint) {
                 auth()
+            }
+            if (response.status.isSuccess()) {
+                ApiResponse(data = response.body(), success = true)
+            } else {
+                ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+            }
+        } catch (e: Exception) {
+            ApiResponse(data = null as T, success = false, message = e.message)
+        }
+    }
+
+    suspend inline fun <reified T> patch(endpoint: String, body: Any): ApiResponse<T> {
+        return try {
+            val response: HttpResponse = client.patch(endpoint) {
+                auth()
+                setBody(body)
             }
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)

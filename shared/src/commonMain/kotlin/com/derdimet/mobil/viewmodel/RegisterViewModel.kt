@@ -43,6 +43,9 @@ class RegisterViewModel(
     private val _address = MutableStateFlow("")
     val address: StateFlow<String> = _address.asStateFlow()
 
+    private val _city = MutableStateFlow("")
+    val city: StateFlow<String> = _city.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -58,14 +61,19 @@ class RegisterViewModel(
     fun onCompanyNameChange(value: String) { _companyName.value = value }
     fun onTaxNumberChange(value: String) { _taxNumber.value = value }
     fun onAddressChange(value: String) { _address.value = value }
+    fun onCityChange(value: String) { _city.value = value }
 
     fun register(onSuccess: (UserRole) -> Unit) {
-        if (_password.value != _confirmPassword.value) {
+        if (_confirmPassword.value.isNotBlank() && _password.value != _confirmPassword.value) {
             _error.value = "Şifreler uyuşmuyor"
             return
         }
         if (_name.value.trim().isEmpty() || _email.value.trim().isEmpty()) {
             _error.value = "Ad soyad ve e-posta zorunlu"
+            return
+        }
+        if (_city.value.trim().isEmpty()) {
+            _error.value = "Şehir seçimi zorunlu"
             return
         }
 
@@ -81,7 +89,8 @@ class RegisterViewModel(
                     accountType = _accountType.value.name,
                     companyName = _companyName.value.takeIf { it.isNotBlank() },
                     taxNumber = _taxNumber.value.takeIf { it.isNotBlank() },
-                    addressLine = _address.value.takeIf { it.isNotBlank() }
+                    addressLine = _address.value.takeIf { it.isNotBlank() },
+                    city = _city.value.takeIf { it.isNotBlank() },
                 )
                 if (ok) {
                     val loginOk = authRepository.login(_email.value.trim(), _password.value)

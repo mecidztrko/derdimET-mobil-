@@ -1,6 +1,7 @@
 package com.derdimet.mobil.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.derdimet.mobil.ui.theme.DerdimColors
+
+@Composable
+fun DetailGridCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.background(Color.White, RoundedCornerShape(14.dp))
+            .border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(14.dp))
+            .padding(12.dp),
+    ) {
+        Text(label, fontSize = 11.sp, color = DerdimColors.MutedForeground)
+        Text(value, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+    }
+}
 
 /** İlan detay sayfalarında üst geri butonu ve favori toggle barı. */
 @Composable

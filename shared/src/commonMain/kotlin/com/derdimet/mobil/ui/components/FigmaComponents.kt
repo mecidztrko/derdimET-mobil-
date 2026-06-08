@@ -24,8 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+import com.derdimet.mobil.ui.theme.DerdimColors
+
 object FigmaStyle {
-    val ScreenBg = Color(0xFFF5F7FA)
+    val ScreenBg = DerdimColors.Background
     val CardBorder = Color(0xFFE5E7EB) // gray-200ish
     val MutedText = Color(0xFF94A3B8)
     val RadiusCard = 20.dp

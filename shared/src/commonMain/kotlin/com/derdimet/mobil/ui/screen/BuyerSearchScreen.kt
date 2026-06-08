@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -44,17 +45,19 @@ import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.model.CreateMeatOfferPayload
 import com.derdimet.mobil.model.MeatSaleRequestDto
 import com.derdimet.mobil.service.MarketService
-import com.derdimet.mobil.ui.components.FigmaCard
-import com.derdimet.mobil.ui.components.FigmaPrimaryButton
-import com.derdimet.mobil.ui.components.FigmaSecondaryButton
+import com.derdimet.mobil.ui.components.DerdimListingCard
+import com.derdimet.mobil.ui.components.DerdimTopBar
+import com.derdimet.mobil.ui.components.DefaultSearchFilters
 import com.derdimet.mobil.ui.components.FigmaStyle
-
-private data class BuyerSearchFilters(
-    val sort: String = "newest",
-    val meatType: String = "",
-    val quantityMin: String = "",
-    val quantityMax: String = "",
-)
+import com.derdimet.mobil.ui.components.FilterChipButton
+import com.derdimet.mobil.ui.components.MarketplaceSearchBar
+import com.derdimet.mobil.ui.components.MeatTypeChips
+import com.derdimet.mobil.ui.components.SearchFilterSheet
+import com.derdimet.mobil.ui.components.SearchFilters
+import com.derdimet.mobil.ui.components.SortOptionSheet
+import com.derdimet.mobil.ui.theme.DerdimColors
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Tune
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,8 +71,9 @@ fun BuyerSearchScreen(
     var favSubmittingId by remember { mutableStateOf<Long?>(null) }
 
     var query by remember { mutableStateOf("") }
-    var filters by remember { mutableStateOf(BuyerSearchFilters()) }
+    var filters by remember { mutableStateOf(DefaultSearchFilters) }
     var filterOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(false) }
 
     var detailListingId by remember { mutableStateOf<Long?>(null) }
     var offerForListing by remember { mutableStateOf<MeatSaleRequestDto?>(null) }
@@ -173,27 +177,37 @@ fun BuyerSearchScreen(
 
     val filteredListings = remember(listings, query, filters) {
         val q = query.trim().lowercase()
-        val meatType = filters.meatType.trim().lowercase()
-        val qMin = parseDoubleOrNull(filters.quantityMin)
-        val qMax = parseDoubleOrNull(filters.quantityMax)
+        val meatType = filters.type.trim().lowercase()
+        val city = filters.city.trim().lowercase()
+        val wMin = parseDoubleOrNull(filters.weightMin)
+        val wMax = parseDoubleOrNull(filters.weightMax)
+        val pMin = parseDoubleOrNull(filters.priceMin)
+        val pMax = parseDoubleOrNull(filters.priceMax)
 
         fun matches(item: MeatSaleRequestDto): Boolean {
             if (q.isNotBlank()) {
-                val inTitle = item.title.lowercase().contains(q)
-                val inMeat = item.meatType.lowercase().contains(q)
-                val inSh = (item.slaughterhouseName ?: "").lowercase().contains(q)
-                val inCo = (item.slaughterhouseCompanyName ?: "").lowercase().contains(q)
-                if (!inTitle && !inMeat && !inSh && !inCo) return false
+                val hay = listOf(item.title, item.meatType, item.slaughterhouseName, item.slaughterhouseCompanyName, item.location, item.slaughterhouseCity)
+                    .joinToString(" ").lowercase()
+                if (!hay.contains(q)) return false
             }
             if (meatType.isNotBlank() && !item.meatType.lowercase().contains(meatType)) return false
+            if (city.isNotBlank()) {
+                val loc = "${item.location ?: ""} ${item.slaughterhouseCity ?: ""}".lowercase()
+                if (!loc.contains(city)) return false
+            }
             val qty = item.quantity
-            if (qMin != null && (qty == null || qty < qMin)) return false
-            if (qMax != null && (qty == null || qty > qMax)) return false
+            if (wMin != null && (qty == null || qty < wMin)) return false
+            if (wMax != null && (qty == null || qty > wMax)) return false
+            val price = item.pricePerKg
+            if (pMin != null && (price == null || price < pMin)) return false
+            if (pMax != null && (price == null || price > pMax)) return false
             return true
         }
 
         val base = listings.filter(::matches)
         when (filters.sort) {
+            "lowest" -> base.sortedBy { it.pricePerKg ?: Double.MAX_VALUE }
+            "highest" -> base.sortedByDescending { it.pricePerKg ?: Double.MIN_VALUE }
             "qtyasc" -> base.sortedBy { it.quantity ?: Double.MAX_VALUE }
             "qtydesc" -> base.sortedByDescending { it.quantity ?: Double.MIN_VALUE }
             else -> base
@@ -202,145 +216,54 @@ fun BuyerSearchScreen(
 
     val activeFilterCount = remember(filters) {
         listOf(
-            filters.sort != "newest",
-            filters.meatType.isNotBlank(),
-            filters.quantityMin.isNotBlank(),
-            filters.quantityMax.isNotBlank(),
+            filters.type.isNotBlank(),
+            filters.city.isNotBlank(),
+            filters.priceMin.isNotBlank() || filters.priceMax.isNotBlank(),
+            filters.weightMin.isNotBlank() || filters.weightMax.isNotBlank(),
+            filters.verifiedOnly,
         ).count { it }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FigmaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text(text = "🥩 Et İlanları", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text(text = "Kesimhanelerin açık ilanları", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                    }
-                    Text(
-                        text = "${filteredListings.size} ilan",
-                        color = Color(0xFF64748B),
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .background(Color(0xFFF1F5F9), RoundedCornerShape(999.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        label = { Text("Başlık, et türü, kesimhane...") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                    )
-                    OutlinedButton(onClick = { filterOpen = true }) {
-                        Text(if (activeFilterCount > 0) "Filtre ($activeFilterCount)" else "Filtre")
-                    }
-                }
-                if (activeFilterCount > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        @Composable
-                        fun Chip(text: String, onClear: () -> Unit) {
-                            TextButton(
-                                onClick = onClear,
-                                modifier = Modifier.background(Color(0xFF1B3A6B).copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
-                            ) {
-                                Text("$text  ✕", color = Color(0xFF1B3A6B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                        if (filters.sort != "newest") Chip(
-                            text = when (filters.sort) {
-                                "qtyasc" -> "Azdan çoğa"
-                                "qtydesc" -> "Çoktan aza"
-                                else -> "Sıralama"
-                            }
-                        ) { filters = filters.copy(sort = "newest") }
-                        if (filters.meatType.isNotBlank()) Chip("Tür: ${filters.meatType}") { filters = filters.copy(meatType = "") }
-                        if (filters.quantityMin.isNotBlank()) Chip("Kg≥${filters.quantityMin}") { filters = filters.copy(quantityMin = "") }
-                        if (filters.quantityMax.isNotBlank()) Chip("Kg≤${filters.quantityMax}") { filters = filters.copy(quantityMax = "") }
+    Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(showLogo = true, subtitle = "Et İlanları", action = {
+            IconButton(onClick = { filterOpen = true }) {
+                Box {
+                    Icon(Icons.Default.Tune, contentDescription = "Filtre", tint = DerdimColors.Primary)
+                    if (activeFilterCount > 0) {
+                        Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(DerdimColors.Destructive, CircleShape))
                     }
                 }
             }
-        }
-
-        when {
-            isLoading -> Text("Yükleniyor...", color = Color(0xFF64748B))
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-            filteredListings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = Color(0xFF64748B))
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(filteredListings) { item ->
-                    val sid = item.slaughterhouseId
-                    val isFav = sid != null && favoriteSlaughterhouseIds.contains(sid)
-                    FigmaCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { detailListingId = item.id },
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = item.title, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        text = "Et türü: ${item.meatType} • Miktar: ${item.quantity ?: "-"} kg",
-                                        color = Color(0xFF64748B),
-                                    )
-                                    Text(
-                                        text = "Kesimhane: ${item.slaughterhouseCompanyName ?: item.slaughterhouseName ?: (item.slaughterhouseId ?: "-")}",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 12.sp,
-                                    )
-                                }
-                                IconButton(
-                                    enabled = sid != null && favSubmittingId != sid,
-                                    onClick = { if (sid != null) favSubmittingId = sid },
-                                    modifier = Modifier.size(36.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = if (isFav) "Favoriden çıkar" else "Favorile",
-                                        tint = if (isFav) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                FigmaSecondaryButton(
-                                    text = "Detay",
-                                    onClick = { detailListingId = item.id },
-                                    modifier = Modifier.weight(1f),
-                                )
-                                FigmaPrimaryButton(
-                                    text = "Teklif ver",
-                                    onClick = { offerForListing = item },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
+        })
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            MarketplaceSearchBar(value = query, onValueChange = { query = it }, placeholder = "Et türü, şehir veya satıcı ara...", onFilterClick = { filterOpen = true }, activeFilterCount = activeFilterCount)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MeatTypeChips.forEach { chip ->
+                    FilterChipButton(
+                        label = chip,
+                        selected = filters.type.equals(chip, true) || (chip == "Tümü" && filters.type.isBlank()),
+                        onClick = { filters = filters.copy(type = if (chip == "Tümü") "" else chip) },
+                    )
+                }
+                FilterChipButton("Sırala", false, onClick = { sortOpen = true })
+            }
+            Text("${filteredListings.size} ilan bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+            when {
+                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                filteredListings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = DerdimColors.MutedForeground)
+                else -> LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(filteredListings.size) { index ->
+                        val item = filteredListings[index]
+                        val sid = item.slaughterhouseId
+                        DerdimListingCard(
+                            item = item,
+                            index = index,
+                            isFavorited = sid != null && favoriteSlaughterhouseIds.contains(sid),
+                            onFavoriteClick = { if (sid != null) favSubmittingId = sid },
+                            onClick = { detailListingId = item.id },
+                            onOfferClick = { offerForListing = item },
+                        )
                     }
                 }
             }
@@ -371,56 +294,12 @@ fun BuyerSearchScreen(
 
     if (filterOpen) {
         ModalBottomSheet(onDismissRequest = { filterOpen = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(text = "Filtrele", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-
-                Text(text = "Sıralama", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    FigmaSecondaryButton("En yeni", onClick = { filters = filters.copy(sort = "newest") }, modifier = Modifier.weight(1f))
-                    FigmaSecondaryButton("Azdan", onClick = { filters = filters.copy(sort = "qtyasc") }, modifier = Modifier.weight(1f))
-                    FigmaSecondaryButton("Çoktan", onClick = { filters = filters.copy(sort = "qtydesc") }, modifier = Modifier.weight(1f))
-                }
-                OutlinedTextField(
-                    value = filters.meatType,
-                    onValueChange = { filters = filters.copy(meatType = it) },
-                    label = { Text("Et türü (örn: dana)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = filters.quantityMin,
-                        onValueChange = { filters = filters.copy(quantityMin = it) },
-                        label = { Text("Kg min") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = filters.quantityMax,
-                        onValueChange = { filters = filters.copy(quantityMax = it) },
-                        label = { Text("Kg max") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FigmaSecondaryButton(
-                        text = "Sıfırla",
-                        onClick = { filters = BuyerSearchFilters() },
-                        modifier = Modifier.weight(1f),
-                    )
-                    FigmaPrimaryButton(
-                        text = "Uygula",
-                        onClick = { filterOpen = false },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            SearchFilterSheet(filters = filters, onApply = { filters = it }, onDismiss = { filterOpen = false })
+        }
+    }
+    if (sortOpen) {
+        ModalBottomSheet(onDismissRequest = { sortOpen = false }) {
+            SortOptionSheet(current = filters.sort, onSelect = { filters = filters.copy(sort = it) }, onDismiss = { sortOpen = false })
         }
     }
 }

@@ -169,6 +169,22 @@ data class ConversationItemDto(
     val otherUserEmail: String? = null,
     val otherUserRole: String? = null,
     val lastMessageAt: String? = null,
+    val unreadCount: Int = 0,
+)
+
+@Serializable
+data class ConversationOfferDto(
+    val kind: String,
+    val offerId: Long,
+    val title: String? = null,
+    val subtitle: String? = null,
+    val pricePerKg: Double? = null,
+    val animalCount: Int? = null,
+    val quantityKg: Double? = null,
+    val note: String? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+    val incoming: Boolean = false,
 )
 
 @Serializable
@@ -206,6 +222,52 @@ data class SellerAnimalListingDto(
     val status: RequestStatus,
     val createdAt: String,
     val isFavoritedByMe: Boolean? = null,
+)
+
+@Serializable
+data class NotificationSummaryDto(
+    val pendingOffers: Int = 0,
+    val pendingIncoming: Int = 0,
+    val pendingPurchaseOffers: Int = 0,
+    val unreadMessages: Int = 0,
+    val primaryLink: String? = null,
+)
+
+@Serializable
+data class UpdateSellerAnimalListingPayload(
+    val category: AnimalCategory? = null,
+    val type: String? = null,
+    val breed: String? = null,
+    val ageMonths: Int? = null,
+    val quantity: Int? = null,
+    val avgWeightKg: Double? = null,
+    val price: Double? = null,
+    val location: String? = null,
+    val description: String? = null,
+    val imageUrls: List<String>? = null,
+)
+
+@Serializable
+data class UpdateMeatSaleRequestPayload(
+    val title: String? = null,
+    val meatType: String? = null,
+    val animalCategory: AnimalCategory? = null,
+    val cut: String? = null,
+    val quantity: Double? = null,
+    val pricePerKg: Double? = null,
+    val packaging: String? = null,
+    val location: String? = null,
+    val description: String? = null,
+    val imageUrls: List<String>? = null,
+)
+
+@Serializable
+data class UpdateAnimalPurchasePayload(
+    val title: String? = null,
+    val animalCategory: AnimalCategory? = null,
+    val quantity: Int? = null,
+    val expectedWeight: Double? = null,
+    val description: String? = null,
 )
 
 @Serializable
@@ -319,3 +381,48 @@ data class UploadedImageResponse(
 data class UploadedImagesResponse(
     val urls: List<String>,
 )
+
+@Serializable
+data class SlaughterhouseIncomingMeatOfferDto(
+    val offerId: Long,
+    val saleRequestId: Long? = null,
+    val saleRequestTitle: String? = null,
+    val buyerId: Long? = null,
+    val buyerName: String? = null,
+    val pricePerKg: Double? = null,
+    val quantity: Double? = null,
+    val note: String? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+)
+
+@Serializable
+data class SellerIncomingListingOfferDto(
+    val offerId: Long,
+    val listingId: Long? = null,
+    val listingType: String? = null,
+    val listingCategory: String? = null,
+    val slaughterhouseId: Long? = null,
+    val slaughterhouseName: String? = null,
+    val pricePerKg: Double? = null,
+    val quantity: Int? = null,
+    val note: String? = null,
+    val status: OfferStatus,
+    val createdAt: String,
+)
+
+data class ListingReview(
+    val id: String,
+    val authorName: String,
+    val rating: Int,
+    val comment: String,
+    val timeAgo: String,
+)
+
+object ListingReviewSamples {
+    fun forSeller(name: String?): List<ListingReview> = listOf(
+        ListingReview("1", "Mehmet A.", 5, "Çok kaliteli ürün, tarife uygun tartı ve hızlı teslimat. Kesinlikle tekrar alacağım.", "3 gün önce"),
+        ListingReview("2", "Ayşe K.", 5, "Güvenilir satıcı, belgeleri eksiksiz. Tavsiye ederim.", "1 hafta önce"),
+        ListingReview("3", "Ali R.", 4, "Ürün kaliteli, fiyat biraz yüksek ama değer.", "2 hafta önce"),
+    )
+}
