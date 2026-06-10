@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -31,10 +30,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -45,10 +44,9 @@ import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.model.CreateSlaughterhouseListingOfferPayload
 import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.service.MarketService
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Tune
+import com.derdimet.mobil.util.toggleFavoriteIdSet
 import com.derdimet.mobil.ui.components.DerdimAnimalListingCard
+import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FilterChipButton
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
@@ -79,12 +77,14 @@ fun SlaughterhouseSearchScreen(
     var listings by remember { mutableStateOf<List<SellerAnimalListingDto>>(emptyList()) }
     var favoriteSellerIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var favSubmittingSellerId by remember { mutableStateOf<Long?>(null) }
+    var favToggleNonce by remember { mutableIntStateOf(0) }
+    var favoriteError by remember { mutableStateOf<String?>(null) }
 
     var query by remember { mutableStateOf("") }
     var filters by remember { mutableStateOf(ShFilters()) }
     var filterOpen by remember { mutableStateOf(false) }
 
-    var detailListingId by remember { mutableStateOf<Long?>(null) }
+    var detailListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     var offerForListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
@@ -131,38 +131,36 @@ fun SlaughterhouseSearchScreen(
     LaunchedEffect(filters, query) { refresh() }
     LaunchedEffect(Unit) { refreshFavorites() }
 
-    // Detail screen overlay
-    val detailId = detailListingId
-    if (detailId != null) {
-        SellerAnimalListingDetailScreen(
-            listingId = detailId,
-            marketService = marketService,
-            onBack = { detailListingId = null },
-            onMakeOffer = { l -> offerForListing = l },
-            onMessage = { sid ->
-                detailListingId = null
-                startChatWithUserId = sid
-            },
-            onOpenSellerProfile = { sid -> openProfileUserId = sid },
-        )
-        // Profile inside detail
-        val openId = openProfileUserId
-        if (openId != null) {
-            PublicProfileScreen(
-                userId = openId,
-                marketService = marketService,
-                onBack = { openProfileUserId = null },
-                onMessage = { id ->
-                    openProfileUserId = null
-                    detailListingId = null
-                    startChatWithUserId = id
-                },
-            )
+    LaunchedEffect(favSubmittingSellerId, favToggleNonce) {
+        val sid = favSubmittingSellerId ?: return@LaunchedEffect
+        favoriteError = null
+        try {
+            val res = marketService.toggleFavorite(sid)
+            if (res.success) {
+                val nowFav = res.data?.isFavoritedByMe == true
+                favoriteSellerIds = toggleFavoriteIdSet(favoriteSellerIds, sid, nowFav)
+                listings = listings.map { if (it.sellerId == sid) it.copy(isFavoritedByMe = nowFav) else it }
+                detailListing = detailListing?.takeIf { it.sellerId == sid }?.copy(isFavoritedByMe = nowFav) ?: detailListing
+            } else {
+                favoriteError = res.message ?: "Favori işlemi başarısız"
+            }
+        } finally {
+            if (favSubmittingSellerId == sid) favSubmittingSellerId = null
         }
-        return
     }
 
-    // Offer create overlay
+    LaunchedEffect(startChatWithUserId) {
+        val otherId = startChatWithUserId ?: return@LaunchedEffect
+        startChatWithUserId = null
+        val res = marketService.getOrCreateConversation(otherId)
+        if (res.success && res.data != null) {
+            selectedConversation = res.data
+        } else {
+            error = res.message ?: "Sohbet başlatılamadı"
+        }
+    }
+
+    // Offer create overlay (detayın üstünde açılır)
     val offerListing = offerForListing
     if (offerListing != null) {
         OfferCreateScreen(
@@ -174,7 +172,7 @@ fun SlaughterhouseSearchScreen(
             onBack = { offerForListing = null },
             onSuccess = {
                 offerForListing = null
-                detailListingId = null
+                detailListing = null
             },
             submit = { price, qty, note ->
                 val res = marketService.createSlaughterhouseListingOffer(
@@ -188,6 +186,45 @@ fun SlaughterhouseSearchScreen(
                 Pair(res.success, res.message)
             },
         )
+        return
+    }
+
+    val detailItem = detailListing
+    if (detailItem != null) {
+        val favId = detailItem.sellerId
+        SellerAnimalListingDetailScreen(
+            listingId = detailItem.id,
+            initialListing = detailItem,
+            isFavorited = favId != null && favoriteSellerIds.contains(favId),
+            favoriteError = favoriteError,
+            onFavoriteToggle = {
+                if (favId != null) {
+                    favSubmittingSellerId = favId
+                    favToggleNonce++
+                }
+            },
+            marketService = marketService,
+            onBack = { detailListing = null },
+            onMakeOffer = { l -> offerForListing = l },
+            onMessage = { sid ->
+                detailListing = null
+                startChatWithUserId = sid
+            },
+            onOpenSellerProfile = { sid -> openProfileUserId = sid },
+        )
+        val openId = openProfileUserId
+        if (openId != null) {
+            PublicProfileScreen(
+                userId = openId,
+                marketService = marketService,
+                onBack = { openProfileUserId = null },
+                onMessage = { id ->
+                    openProfileUserId = null
+                    detailListing = null
+                    startChatWithUserId = id
+                },
+            )
+        }
         return
     }
 
@@ -218,72 +255,57 @@ fun SlaughterhouseSearchScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
-        DerdimTopBar(showLogo = true, subtitle = "Hayvan İlanları", action = {
-            IconButton(onClick = { filterOpen = true }) {
-                Box {
-                    Icon(Icons.Default.Tune, contentDescription = "Filtre", tint = DerdimColors.Primary)
-                    if (activeFilterCount > 0) {
-                        Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(DerdimColors.Destructive, CircleShape))
+        favoriteError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        }
+        DerdimTopBar(showLogo = true, subtitle = "Hayvan İlanları")
+        DerdimListScreenBody(
+            header = {
+                MarketplaceSearchBar(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Hayvan türü, ırk veya satıcı ara...",
+                    onFilterClick = { filterOpen = true },
+                    activeFilterCount = activeFilterCount,
+                )
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChipButton("Tümü", filters.category == null, onClick = { filters = filters.copy(category = null) })
+                    FilterChipButton("Küçükbaş", filters.category == AnimalCategory.KUCUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) })
+                    FilterChipButton("Büyükbaş", filters.category == AnimalCategory.BUYUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) })
+                }
+                Text("${listings.size} ilan bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+            },
+            content = {
+                when {
+                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                    listings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = DerdimColors.MutedForeground)
+                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(listings.size) { index ->
+                            val l = listings[index]
+                            val sid = l.sellerId
+                            DerdimAnimalListingCard(
+                                item = l,
+                                index = index,
+                                isFavorited = sid != null && favoriteSellerIds.contains(sid),
+                                onFavoriteClick = {
+                                    if (sid != null) {
+                                        favSubmittingSellerId = sid
+                                        favToggleNonce++
+                                    }
+                                },
+                                onClick = {
+                                    detailListing = l.copy(
+                                        isFavoritedByMe = sid != null && favoriteSellerIds.contains(sid),
+                                    )
+                                },
+                                onOfferClick = { offerForListing = l },
+                            )
+                        }
                     }
                 }
-            }
-        })
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            MarketplaceSearchBar(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = "Hayvan türü, ırk veya satıcı ara...",
-                onFilterClick = { filterOpen = true },
-                activeFilterCount = activeFilterCount,
-            )
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChipButton("Tümü", filters.category == null, onClick = { filters = filters.copy(category = null) })
-                FilterChipButton("Küçükbaş", filters.category == AnimalCategory.KUCUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) })
-                FilterChipButton("Büyükbaş", filters.category == AnimalCategory.BUYUKBAS, onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) })
-            }
-            Text("${listings.size} ilan bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
-            when {
-                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                listings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = DerdimColors.MutedForeground)
-                else -> LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(listings.size) { index ->
-                        val l = listings[index]
-                        val sid = l.sellerId
-                        DerdimAnimalListingCard(
-                            item = l,
-                            index = index,
-                            isFavorited = sid != null && favoriteSellerIds.contains(sid),
-                            onFavoriteClick = { if (sid != null) favSubmittingSellerId = sid },
-                            onClick = { detailListingId = l.id },
-                            onOfferClick = { offerForListing = l },
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(favSubmittingSellerId) {
-        val sid = favSubmittingSellerId ?: return@LaunchedEffect
-        favSubmittingSellerId = null
-        val res = marketService.toggleFavorite(sid)
-        if (res.success) {
-            refreshFavorites()
-        } else {
-            error = res.message ?: "Favori işlemi başarısız"
-        }
-    }
-
-    LaunchedEffect(startChatWithUserId) {
-        val otherId = startChatWithUserId ?: return@LaunchedEffect
-        startChatWithUserId = null
-        val res = marketService.getOrCreateConversation(otherId)
-        if (res.success && res.data != null) {
-            selectedConversation = res.data
-        } else {
-            error = res.message ?: "Sohbet başlatılamadı"
-        }
+            },
+        )
     }
 
     if (filterOpen) {

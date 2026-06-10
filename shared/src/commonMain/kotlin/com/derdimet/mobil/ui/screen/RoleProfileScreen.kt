@@ -71,6 +71,7 @@ fun RoleProfileScreen(
     onOpenPurchases: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     var me by remember { mutableStateOf<MeResponse?>(null) }
     var offerCount by remember { mutableStateOf(0) }
@@ -86,14 +87,14 @@ fun RoleProfileScreen(
         me = marketService.fetchMe().data
         messageCount = marketService.fetchConversations().data?.sumOf { it.unreadCount } ?: 0
         favoriteCount = when (userRole) {
-            UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteSlaughterhouses().data?.size ?: 0
+            UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.size ?: 0
             UserRole.ANIMAL_SELLER -> marketService.fetchSellerFavoriteBuyers().data?.size ?: 0
             UserRole.SLAUGHTERHOUSE -> (marketService.fetchSlaughterhouseFavoriteSellers().data?.size ?: 0) +
                 (marketService.fetchSlaughterhouseFavoriteBuyers().data?.size ?: 0)
             UserRole.ADMIN -> 0
         }
         favoriteNames = when (userRole) {
-            UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteSlaughterhouses().data?.mapNotNull { it.slaughterhouseCompanyName ?: it.slaughterhouseName } ?: emptyList()
+            UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.map { it.title } ?: emptyList()
             UserRole.ANIMAL_SELLER -> marketService.fetchSellerFavoriteBuyers().data?.mapNotNull { it.buyerName } ?: emptyList()
             UserRole.SLAUGHTERHOUSE -> (marketService.fetchSlaughterhouseFavoriteSellers().data?.mapNotNull { it.sellerName } ?: emptyList()) +
                 (marketService.fetchSlaughterhouseFavoriteBuyers().data?.mapNotNull { it.buyerName } ?: emptyList())
@@ -195,8 +196,20 @@ fun RoleProfileScreen(
             }
 
             SectionTitle("HESABIM")
-            ProfileMenuItem(Icons.Default.Favorite, "Favorilerim", Color(0xFFF87171), favoriteCount.takeIf { it > 0 }?.toString(), onClick = { showFavorites = !showFavorites })
-            if (showFavorites) {
+            ProfileMenuItem(
+                Icons.Default.Favorite,
+                "Favorilerim",
+                Color(0xFFF87171),
+                favoriteCount.takeIf { it > 0 }?.toString(),
+                onClick = {
+                    if (userRole == UserRole.MEAT_BUYER) {
+                        onOpenFavorites()
+                    } else {
+                        showFavorites = !showFavorites
+                    }
+                },
+            )
+            if (showFavorites && userRole != UserRole.MEAT_BUYER) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (favoriteNames.isEmpty()) {
                         Text("Henüz favori eklenmedi.", fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(horizontal = 4.dp))

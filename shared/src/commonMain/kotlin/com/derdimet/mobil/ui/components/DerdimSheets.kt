@@ -6,11 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,7 +81,7 @@ fun FilterSection(
     defaultOpen: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    var open by remember { mutableStateOf(defaultOpen) }
+    var open by remember(title) { mutableStateOf(defaultOpen) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -86,10 +89,11 @@ fun FilterSection(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        val sectionInteraction = remember(title) { MutableInteractionSource() }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { open = !open },
+                .clickable(interactionSource = sectionInteraction, indication = null) { open = !open },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -111,10 +115,11 @@ fun FilterChipButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Text(
         text = label,
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .background(if (selected) DerdimColors.Primary else Color.White, RoundedCornerShape(12.dp))
             .border(2.dp, if (selected) DerdimColors.Primary else DerdimColors.Border, RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -128,19 +133,19 @@ fun FilterChipButton(
 fun SearchFilterSheet(
     filters: SearchFilters,
     isAnimal: Boolean = false,
+    countForFilters: (SearchFilters) -> Int = { 0 },
     onApply: (SearchFilters) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var local by remember(filters) { mutableStateOf(filters) }
-    val activeCount = remember(local) {
-        listOf(
-            local.type.isNotBlank(),
-            local.city.isNotBlank(),
-            local.priceMin.isNotBlank() || local.priceMax.isNotBlank(),
-            local.weightMin.isNotBlank() || local.weightMax.isNotBlank(),
-            local.verifiedOnly,
-        ).count { it }
+    var local by remember { mutableStateOf(filters) }
+    LaunchedEffect(filters) {
+        local = filters
     }
+    val resultCount = remember(local) { countForFilters(local) }
+    val scrollState = rememberScrollState()
+    val meatTypeScroll = rememberScrollState()
+    val cityScroll = rememberScrollState()
+    val priceScroll = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -172,12 +177,14 @@ fun SearchFilterSheet(
 
         Column(
             modifier = Modifier
-                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
+                .heightIn(max = 440.dp)
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FilterSection(if (isAnimal) "Hayvan Kategorisi" else "Et Türü") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(meatTypeScroll)) {
                     MeatTypeChips.forEach { chip ->
                         FilterChipButton(
                             label = chip,
@@ -205,7 +212,7 @@ fun SearchFilterSheet(
                         color = if (local.city.isBlank()) DerdimColors.MutedForeground else DerdimColors.Foreground,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(cityScroll)) {
                     TurkishCities.filter { it.isNotBlank() }.forEach { city ->
                         FilterChipButton(city, local.city == city, onClick = { local = local.copy(city = city) })
                     }
@@ -213,7 +220,7 @@ fun SearchFilterSheet(
             }
 
             FilterSection("Fiyat Aralığı") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(priceScroll)) {
                     PricePresets.forEach { (label, range) ->
                         val active = local.priceMin == range.first && local.priceMax == range.second
                         FilterChipButton(
@@ -295,7 +302,7 @@ fun SearchFilterSheet(
                 .padding(16.dp),
         ) {
             FigmaPrimaryButton(
-                text = if (activeCount > 0) "Filtreleri Uygula ($activeCount)" else "Filtreleri Uygula",
+                text = "Filtreleri Uygula ($resultCount ilan)",
                 onClick = { onApply(local); onDismiss() },
                 modifier = Modifier.fillMaxWidth(),
             )

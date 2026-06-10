@@ -31,8 +31,8 @@ class SellerViewModel(private val marketService: MarketService) : ViewModel() {
             try {
                 val reqs = marketService.fetchOpenAnimalPurchaseRequests()
                 val offs = marketService.fetchMyAnimalOffers()
-                if (reqs.success) _requests.value = reqs.data
-                if (offs.success) _offers.value = offs.data
+                if (reqs.success) _requests.value = reqs.data ?: emptyList()
+                if (offs.success) _offers.value = offs.data ?: emptyList()
             } catch (e: Exception) {
                 _error.value = e.message
             } finally {

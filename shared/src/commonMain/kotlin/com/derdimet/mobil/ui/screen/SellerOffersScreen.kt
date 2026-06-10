@@ -2,9 +2,7 @@ package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +23,7 @@ import com.derdimet.mobil.model.SellerIncomingListingOfferDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimActionBadge
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
+import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimOfferCard
 import com.derdimet.mobil.ui.components.DerdimStatsRow
 import com.derdimet.mobil.ui.components.DerdimTopBar
@@ -33,6 +32,7 @@ import com.derdimet.mobil.ui.components.OfferCardData
 import com.derdimet.mobil.ui.components.initialsFrom
 import com.derdimet.mobil.ui.theme.DerdimColors
 import kotlin.math.abs
+import androidx.compose.foundation.layout.Column
 
 @Composable
 fun SellerOffersScreen(marketService: MarketService) {
@@ -44,8 +44,38 @@ fun SellerOffersScreen(marketService: MarketService) {
     var statusFilter by remember { mutableStateOf("") }
     var refreshKey by remember { mutableIntStateOf(0) }
     var actingOfferId by remember { mutableStateOf<Long?>(null) }
+    var actingOfferNonce by remember { mutableIntStateOf(0) }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
-    var startChatWithUserId by remember { mutableStateOf<Long?>(null) }
+    var chatTargetUserId by remember { mutableStateOf<Long?>(null) }
+    var chatLaunchNonce by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(chatTargetUserId, chatLaunchNonce) {
+        val otherId = chatTargetUserId ?: return@LaunchedEffect
+        try {
+            val res = marketService.getOrCreateConversation(otherId)
+            if (res.success && res.data != null) {
+                selectedConversation = res.data
+            } else {
+                error = res.message ?: "Sohbet başlatılamadı"
+            }
+        } finally {
+            if (chatTargetUserId == otherId) chatTargetUserId = null
+        }
+    }
+
+    LaunchedEffect(actingOfferId, actingOfferNonce) {
+        val id = actingOfferId ?: return@LaunchedEffect
+        try {
+            val accept = id > 0
+            val offerId = abs(id)
+            val res = if (accept) marketService.acceptSellerListingOffer(offerId)
+            else marketService.rejectSellerListingOffer(offerId)
+            if (!res.success) error = res.message ?: "İşlem başarısız"
+            else refreshKey++
+        } finally {
+            if (actingOfferId == id) actingOfferId = null
+        }
+    }
 
     val chatConvo = selectedConversation
     if (chatConvo != null) {
@@ -80,94 +110,94 @@ fun SellerOffersScreen(marketService: MarketService) {
             title = "Teklifler",
             action = { if (pending > 0) DerdimActionBadge("$pending bekliyor") },
         )
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            DerdimFilterTabs(
-                tabs = listOf(
-                    Triple("incoming", "Gelen", incoming.size),
-                    Triple("sent", "Gönderilen", sent.size),
-                ),
-                selectedKey = section,
-                onSelect = {
-                    section = it
-                    statusFilter = ""
-                },
-            )
-            DerdimStatsRow(pending, accepted, rejected)
-            DerdimFilterTabs(
-                tabs = listOf(
-                    Triple("", "Tümü", activeStatuses.size),
-                    Triple("pending", "Bekleyen", pending),
-                    Triple("accepted", "Kabul", accepted),
-                    Triple("rejected", "Reddedilen", rejected),
-                ),
-                selectedKey = statusFilter,
-                onSelect = { statusFilter = it },
-            )
-            when {
-                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                section == "incoming" -> {
-                    val list = incoming.filterOffersByStatus(statusFilter)
-                    if (list.isEmpty()) {
-                        Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
-                    } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
-                                DerdimOfferCard(
-                                    offer = item.toOfferCardData(index),
-                                    showActions = true,
-                                    onAccept = if (item.status == OfferStatus.PENDING) {
-                                        { actingOfferId = item.offerId }
-                                    } else null,
-                                    onReject = if (item.status == OfferStatus.PENDING) {
-                                        { actingOfferId = -item.offerId }
-                                    } else null,
-                                    onMessage = item.slaughterhouseId?.let { uid ->
-                                        { startChatWithUserId = uid }
-                                    },
-                                )
+        DerdimListScreenBody(
+            header = {
+                DerdimFilterTabs(
+                    tabs = listOf(
+                        Triple("incoming", "Gelen", incoming.size),
+                        Triple("sent", "Gönderilen", sent.size),
+                    ),
+                    selectedKey = section,
+                    onSelect = {
+                        section = it
+                        statusFilter = ""
+                    },
+                )
+                DerdimStatsRow(pending, accepted, rejected)
+                DerdimFilterTabs(
+                    tabs = listOf(
+                        Triple("", "Tümü", activeStatuses.size),
+                        Triple("pending", "Bekleyen", pending),
+                        Triple("accepted", "Kabul", accepted),
+                        Triple("rejected", "Reddedilen", rejected),
+                    ),
+                    selectedKey = statusFilter,
+                    onSelect = { statusFilter = it },
+                )
+            },
+            content = {
+                when {
+                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                    section == "incoming" -> {
+                        val list = incoming.filterOffersByStatus(statusFilter)
+                        if (list.isEmpty()) {
+                            Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
+                        } else {
+                            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
+                                    DerdimOfferCard(
+                                        offer = item.toOfferCardData(index),
+                                        showActions = true,
+                                        onAccept = if (item.status == OfferStatus.PENDING) {
+                                            {
+                                                actingOfferId = item.offerId
+                                                actingOfferNonce++
+                                            }
+                                        } else null,
+                                        onReject = if (item.status == OfferStatus.PENDING) {
+                                            {
+                                                actingOfferId = -item.offerId
+                                                actingOfferNonce++
+                                            }
+                                        } else null,
+                                        onMessage = item.slaughterhouseId?.let { uid ->
+                                            {
+                                                chatTargetUserId = uid
+                                                chatLaunchNonce++
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        val list = sent.filterSentOffersByStatus(statusFilter)
+                        if (list.isEmpty()) {
+                            Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
+                        } else {
+                            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
+                                    DerdimOfferCard(
+                                        offer = item.toOfferCardData(index),
+                                        showActions = true,
+                                        onMessage = item.request.slaughterhouseId?.let { uid ->
+                                            {
+                                                chatTargetUserId = uid
+                                                chatLaunchNonce++
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                else -> {
-                    val list = sent.filterSentOffersByStatus(statusFilter)
-                    if (list.isEmpty()) {
-                        Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
-                    } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            itemsIndexed(list, key = { _, it -> it.offerId }) { index, item ->
-                                DerdimOfferCard(
-                                    offer = item.toOfferCardData(index),
-                                    showActions = item.status != OfferStatus.PENDING,
-                                    onMessage = item.request.slaughterhouseId?.let { uid -> { startChatWithUserId = uid } },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            },
+        )
     }
 
-    LaunchedEffect(startChatWithUserId) {
-        val otherId = startChatWithUserId ?: return@LaunchedEffect
-        startChatWithUserId = null
-        val res = marketService.getOrCreateConversation(otherId)
-        if (res.success && res.data != null) selectedConversation = res.data
-        else error = res.message ?: "Sohbet başlatılamadı"
-    }
-
-    LaunchedEffect(actingOfferId) {
-        val id = actingOfferId ?: return@LaunchedEffect
-        actingOfferId = null
-        val accept = id > 0
-        val offerId = abs(id)
-        val res = if (accept) marketService.acceptSellerListingOffer(offerId)
-        else marketService.rejectSellerListingOffer(offerId)
-        if (!res.success) error = res.message ?: "İşlem başarısız"
-        refreshKey++
-    }
 }
 
 private fun List<SellerIncomingListingOfferDto>.filterOffersByStatus(filter: String) = when (filter) {
@@ -191,7 +221,7 @@ private fun SellerIncomingListingOfferDto.toOfferCardData(index: Int) = OfferCar
     partyCompany = null,
     partyInitials = initialsFrom(slaughterhouseName),
     offerAmount = pricePerKg,
-    originalPrice = pricePerKg,
+    originalPrice = null,
     quantityLabel = quantity?.let { "$it adet" },
     status = status,
     dateLabel = createdAt.take(10),
@@ -206,7 +236,7 @@ private fun SellerAnimalOfferItemDto.toOfferCardData(index: Int) = OfferCardData
     partyCompany = request.slaughterhouseCompanyName,
     partyInitials = initialsFrom(request.slaughterhouseName),
     offerAmount = pricePerKg,
-    originalPrice = pricePerKg,
+    originalPrice = null,
     quantityLabel = animalCount?.let { "$it adet" },
     status = status,
     dateLabel = createdAt.take(10),

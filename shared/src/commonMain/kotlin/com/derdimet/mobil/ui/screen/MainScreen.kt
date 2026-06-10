@@ -59,6 +59,7 @@ private sealed class ProfileOverlay {
     data object Purchases : ProfileOverlay()
     data object Notifications : ProfileOverlay()
     data object EditProfile : ProfileOverlay()
+    data object Favorites : ProfileOverlay()
 }
 
 @Composable
@@ -141,6 +142,7 @@ fun MainScreen(
                             onOpenPurchases = { profileOverlay = ProfileOverlay.Purchases },
                             onOpenNotifications = { profileOverlay = ProfileOverlay.Notifications },
                             onOpenEditProfile = { profileOverlay = ProfileOverlay.EditProfile },
+                            onOpenFavorites = { profileOverlay = ProfileOverlay.Favorites },
                         )
                         when (profileOverlay) {
                             ProfileOverlay.None -> Unit
@@ -148,6 +150,7 @@ fun MainScreen(
                             ProfileOverlay.Purchases -> MyPurchasesScreen(userRole, marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.Notifications -> NotificationsScreen(marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.EditProfile -> EditProfileScreen(marketService, authRepository, onBack = { profileOverlay = ProfileOverlay.None }, onSaved = { profileOverlay = ProfileOverlay.None })
+                            ProfileOverlay.Favorites -> BuyerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
                         }
                     }
                     AppNavTab.Create -> CreateScreenByRole(userRole, marketService)
@@ -204,9 +207,10 @@ private fun ProfileScreenByRole(
     onOpenPurchases: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenEditProfile: () -> Unit,
+    onOpenFavorites: () -> Unit = {},
 ) {
     when (userRole) {
-        UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile)
+        UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
         UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile)
         UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile)
         UserRole.ADMIN -> Unit

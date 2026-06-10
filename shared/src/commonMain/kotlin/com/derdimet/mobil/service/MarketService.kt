@@ -131,12 +131,24 @@ class MarketService(private val apiService: ApiService) {
         return apiService.get("/api/buyer/meat-sale-requests")
     }
 
+    suspend fun fetchBuyerFavoriteMeatListings(): ApiResponse<List<MeatSaleRequestDto>> {
+        return apiService.get("/api/buyer/favorite-meat-sale-requests")
+    }
+
     suspend fun createBuyerMeatOffer(saleRequestId: Long, payload: CreateMeatOfferPayload): ApiResponse<BuyerMeatOfferItemDto> {
         return apiService.post("/api/buyer/meat-sale-requests/$saleRequestId/offers", payload)
     }
 
     suspend fun fetchMyBuyerMeatOffers(): ApiResponse<List<BuyerMeatOfferItemDto>> {
         return apiService.get("/api/buyer/meat-offers")
+    }
+
+    suspend fun withdrawBuyerMeatOffer(offerId: Long): ApiResponse<BuyerMeatOfferItemDto> {
+        return apiService.postEmpty("/api/buyer/meat-offers/$offerId/withdraw")
+    }
+
+    suspend fun acceptBuyerMeatOffer(offerId: Long): ApiResponse<BuyerMeatOfferItemDto> {
+        return apiService.postEmpty("/api/buyer/meat-offers/$offerId/accept")
     }
 
     suspend fun fetchFavoriteSellers(): ApiResponse<List<FavoriteSellerDto>> {
@@ -195,8 +207,19 @@ class MarketService(private val apiService: ApiService) {
         return apiService.get("/api/users/$userId/public")
     }
 
+    suspend fun fetchPublicUserListings(userId: Long): ApiResponse<PublicUserListingsDto> {
+        return apiService.get("/api/users/$userId/public/listings")
+    }
+
     suspend fun toggleFavorite(targetUserId: Long): ApiResponse<FavoriteToggleResponse> {
         return apiService.post("/api/favorites/toggle/$targetUserId", body = mapOf<String, String>())
+    }
+
+    suspend fun toggleMeatListingFavorite(saleRequestId: Long): ApiResponse<FavoriteToggleResponse> {
+        return apiService.post(
+            "/api/buyer/meat-sale-requests/$saleRequestId/favorite/toggle",
+            body = mapOf<String, String>(),
+        )
     }
 
     suspend fun fetchBuyerFavoriteSlaughterhouses(): ApiResponse<List<FavoriteSlaughterhouseDto>> {

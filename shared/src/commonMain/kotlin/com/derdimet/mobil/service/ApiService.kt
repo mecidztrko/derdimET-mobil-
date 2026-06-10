@@ -17,6 +17,7 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -48,6 +49,26 @@ class ApiService(
         currentAuthToken?.let {
             header(HttpHeaders.Authorization, "Bearer $it")
         }
+    }
+
+    @PublishedApi internal fun rethrowIfCancelled(e: Exception): Nothing? {
+        if (e is CancellationException) throw e
+        return null
+    }
+
+    @PublishedApi internal suspend fun errorMessageFrom(response: HttpResponse): String {
+        val raw = runCatching { response.bodyAsText() }.getOrNull().orEmpty()
+        if (raw.isBlank()) return "API Hatası: ${response.status}"
+        return runCatching {
+            val json = Json.parseToJsonElement(raw).jsonObject
+            json["message"]?.jsonPrimitive?.content
+                ?: when {
+                    response.status.value == 404 && json["error"]?.jsonPrimitive?.content == "Not Found" ->
+                        "İşlem bulunamadı. Backend yeniden başlatıldı mı?"
+                    else -> json["error"]?.jsonPrimitive?.content
+                }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+            ?: "API Hatası: ${response.status}"
     }
 
     suspend fun login(email: String, password: String): ApiResponse<LoginResponse> {
@@ -104,7 +125,7 @@ class ApiService(
         return if (response.status.isSuccess()) {
             ApiResponse(data = response.body(), success = true)
         } else {
-            ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+            ApiResponse(data = null, success = false, message = errorMessageFrom(response))
         }
     }
 
@@ -116,10 +137,11 @@ class ApiService(
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)
             } else {
-                ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
             }
         } catch (e: Exception) {
-            ApiResponse(data = null as T, success = false, message = e.message)
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
         }
     }
 
@@ -131,10 +153,11 @@ class ApiService(
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)
             } else {
-                ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
             }
         } catch (e: Exception) {
-            ApiResponse(data = null as T, success = false, message = e.message)
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
         }
     }
 
@@ -147,10 +170,11 @@ class ApiService(
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)
             } else {
-                ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
             }
         } catch (e: Exception) {
-            ApiResponse(data = null as T, success = false, message = e.message)
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
         }
     }
 
@@ -163,10 +187,27 @@ class ApiService(
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)
             } else {
-                ApiResponse(data = response.body(), success = false, message = "API Hatası: ${response.status}")
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
             }
         } catch (e: Exception) {
-            ApiResponse(data = null as T, success = false, message = e.message)
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
+        }
+    }
+
+    suspend inline fun <reified T> postEmpty(endpoint: String): ApiResponse<T> {
+        return try {
+            val response: HttpResponse = client.post(endpoint) {
+                auth()
+            }
+            if (response.status.isSuccess()) {
+                ApiResponse(data = response.body(), success = true)
+            } else {
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
+            }
+        } catch (e: Exception) {
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
         }
     }
 

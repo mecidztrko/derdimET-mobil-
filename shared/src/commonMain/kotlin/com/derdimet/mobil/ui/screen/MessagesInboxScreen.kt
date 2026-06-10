@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +21,7 @@ import com.derdimet.mobil.model.ConversationItemDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimActionBadge
 import com.derdimet.mobil.ui.components.DerdimConversationRow
+import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.MarketplaceSearchBar
@@ -35,6 +35,7 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
     var lastMessagePreview by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var query by remember { mutableStateOf("") }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
+    var openProfileUserId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
@@ -56,6 +57,23 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
         isLoading = false
     }
 
+    val profileUserId = openProfileUserId
+    if (profileUserId != null) {
+        PublicProfileScreen(
+            userId = profileUserId,
+            marketService = marketService,
+            onBack = { openProfileUserId = null },
+            onMessage = { id ->
+                openProfileUserId = null
+                val existing = conversations.find { it.otherUserId == id }
+                if (existing != null) {
+                    selectedConversation = existing
+                }
+            },
+        )
+        return
+    }
+
     val convo = selectedConversation
     if (convo != null) {
         ChatScreen(
@@ -63,7 +81,9 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
             conversationId = convo.conversationId,
             title = convo.otherUserName ?: (convo.otherUserEmail ?: "Sohbet"),
             subtitle = roleLabelTr(convo.otherUserRole),
+            otherUserId = convo.otherUserId,
             onBack = { selectedConversation = null },
+            onOpenProfile = { openProfileUserId = it },
         )
         return
     }
@@ -84,30 +104,40 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
             title = "Mesajlar",
             action = { if (unreadTotal > 0) DerdimActionBadge("$unreadTotal okunmamış") },
         )
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            MarketplaceSearchBar(value = query, onValueChange = { query = it }, placeholder = "Konuşma veya kişi ara...", onFilterClick = {}, activeFilterCount = 0)
-            Text("${filtered.size} konuşma", fontSize = 12.sp, color = DerdimColors.MutedForeground)
-            when {
-                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                filtered.isEmpty() -> Text("Henüz mesaj yok.", color = DerdimColors.MutedForeground)
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    itemsIndexed(filtered, key = { _, it -> it.conversationId }) { index, item ->
-                        DerdimConversationRow(
-                            index = index,
-                            name = item.otherUserName ?: item.otherUserEmail ?: "Kullanıcı",
-                            company = roleLabelTr(item.otherUserRole),
-                            listingTitle = null,
-                            lastMessage = lastMessagePreview[item.conversationId] ?: if (item.lastMessageAt != null) "Mesajlaşmaya devam et" else null,
-                            time = item.lastMessageAt?.take(16),
-                            unread = item.unreadCount,
-                            online = false,
-                            onClick = { selectedConversation = item },
-                        )
+        DerdimListScreenBody(
+            header = {
+                MarketplaceSearchBar(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Konuşma veya kişi ara...",
+                    onFilterClick = {},
+                    showFilterButton = false,
+                )
+                Text("${filtered.size} konuşma", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+            },
+            content = {
+                when {
+                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
+                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
+                    filtered.isEmpty() -> Text("Henüz mesaj yok.", color = DerdimColors.MutedForeground)
+                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        itemsIndexed(filtered, key = { _, it -> it.conversationId }) { index, item ->
+                            DerdimConversationRow(
+                                index = index,
+                                name = item.otherUserName ?: item.otherUserEmail ?: "Kullanıcı",
+                                company = roleLabelTr(item.otherUserRole),
+                                listingTitle = null,
+                                lastMessage = lastMessagePreview[item.conversationId] ?: if (item.lastMessageAt != null) "Mesajlaşmaya devam et" else null,
+                                time = item.lastMessageAt?.take(16),
+                                unread = item.unreadCount,
+                                online = false,
+                                onClick = { selectedConversation = item },
+                            )
+                        }
                     }
                 }
-            }
-        }
+            },
+        )
     }
 }
 

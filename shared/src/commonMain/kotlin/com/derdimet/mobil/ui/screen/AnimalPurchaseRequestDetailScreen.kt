@@ -57,22 +57,35 @@ fun AnimalPurchaseRequestDetailScreen(
     onMakeOffer: (AnimalPurchaseRequestDto) -> Unit,
     onMessage: (Long) -> Unit,
     onOpenSlaughterhouseProfile: (Long) -> Unit,
+    initialRequest: AnimalPurchaseRequestDto? = null,
+    isFavorited: Boolean? = null,
+    favoriteError: String? = null,
+    onFavoriteToggle: (() -> Unit)? = null,
 ) {
-    var loading by remember(requestId) { mutableStateOf(true) }
+    var loading by remember(requestId) { mutableStateOf(initialRequest == null) }
     var error by remember(requestId) { mutableStateOf<String?>(null) }
-    var req by remember(requestId) { mutableStateOf<AnimalPurchaseRequestDto?>(null) }
-    var favSubmitting by remember { mutableStateOf(false) }
+    var req by remember(requestId) { mutableStateOf(initialRequest) }
     val shareText = rememberShareTextAction()
 
     LaunchedEffect(requestId) {
-        loading = true
-        error = null
+        if (initialRequest == null) {
+            loading = true
+            error = null
+        }
         val res = marketService.fetchAnimalPurchaseRequestDetail(requestId)
-        if (res.success) req = res.data else error = res.message ?: "Detay yüklenemedi"
+        if (res.success && res.data != null) {
+            req = res.data
+            error = null
+        } else if (req == null) {
+            error = res.message ?: "Detay yüklenemedi"
+        }
         loading = false
     }
 
     val r = req
+    val favoriteTargetId = r?.slaughterhouseId
+    val showFavorited = isFavorited ?: (r?.isFavoritedByMe == true)
+
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(
             title = "İlan Detayı",
@@ -83,16 +96,19 @@ fun AnimalPurchaseRequestDetailScreen(
                     IconButton(onClick = {
                         shareText("derdimET alım talebi: ${r?.title ?: requestId}")
                     }) { Icon(Icons.Default.Share, null) }
-                    IconButton(onClick = { if (r?.slaughterhouseId != null) favSubmitting = true }) {
+                    IconButton(onClick = { onFavoriteToggle?.invoke() }, enabled = favoriteTargetId != null && onFavoriteToggle != null) {
                         Icon(
-                            if (r?.isFavoritedByMe == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            if (showFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             null,
-                            tint = if (r?.isFavoritedByMe == true) Color(0xFFE05C2A) else DerdimColors.MutedForeground,
+                            tint = if (showFavorited) Color(0xFFE05C2A) else DerdimColors.MutedForeground,
                         )
                     }
                 }
             },
         )
+        favoriteError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Yükleniyor...", color = DerdimColors.MutedForeground) }
             error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error ?: "Hata", color = MaterialTheme.colorScheme.error) }
@@ -161,14 +177,4 @@ fun AnimalPurchaseRequestDetailScreen(
         }
     }
 
-    if (favSubmitting) {
-        LaunchedEffect(Unit) {
-            val sid = req?.slaughterhouseId
-            if (sid != null) {
-                val res = marketService.toggleFavorite(sid)
-                if (res.success) req = req?.copy(isFavoritedByMe = res.data?.isFavoritedByMe == true)
-            }
-            favSubmitting = false
-        }
-    }
 }

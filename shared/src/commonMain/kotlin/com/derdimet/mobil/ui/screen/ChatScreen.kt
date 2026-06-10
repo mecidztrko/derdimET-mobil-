@@ -1,13 +1,14 @@
 package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,14 +20,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,21 +37,29 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.derdimet.mobil.model.ConversationOfferDto
 import com.derdimet.mobil.model.MessageDto
 import com.derdimet.mobil.model.OfferStatus
+import com.derdimet.mobil.platform.rememberImagePickerLauncher
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.InitialsAvatar
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.formatNumber
+import kotlinx.coroutines.launch
+
+private const val IMAGE_MESSAGE_PREFIX = "📷 "
 
 @Composable
 fun ChatScreen(
@@ -56,16 +67,21 @@ fun ChatScreen(
     conversationId: Long,
     title: String,
     subtitle: String? = null,
+    otherUserId: Long? = null,
     onBack: () -> Unit,
+    onOpenProfile: ((Long) -> Unit)? = null,
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var messages by remember { mutableStateOf<List<MessageDto>>(emptyList()) }
     var text by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    var attaching by remember { mutableStateOf(false) }
     var myUserId by remember { mutableStateOf<Long?>(null) }
     var latestOffer by remember { mutableStateOf<ConversationOfferDto?>(null) }
-    var actionHint by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     suspend fun refresh() {
         isLoading = true
         error = null
@@ -76,6 +92,24 @@ fun ChatScreen(
             error = res.message ?: "Mesajlar alınamadı"
         }
         isLoading = false
+    }
+
+    val pickImage = rememberImagePickerLauncher { bytes, filename, contentType ->
+        attaching = true
+        scope.launch {
+            val upload = marketService.uploadImage(bytes, filename, contentType)
+            if (upload.success && !upload.data?.url.isNullOrBlank()) {
+                val res = marketService.sendMessage(conversationId, "$IMAGE_MESSAGE_PREFIX${upload.data!!.url}")
+                if (res.success) {
+                    refresh()
+                } else {
+                    error = res.message ?: "Dosya gönderilemedi"
+                }
+            } else {
+                snackbarHostState.showSnackbar(upload.message ?: "Dosya yüklenemedi")
+            }
+            attaching = false
+        }
     }
 
     LaunchedEffect(conversationId) {
@@ -104,15 +138,28 @@ fun ChatScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri") }
-                    InitialsAvatar(name = title, size = 36)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text(subtitle ?: "Mesajlaşma", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .then(
+                                if (otherUserId != null && onOpenProfile != null) {
+                                    Modifier.clickable { onOpenProfile(otherUserId) }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        InitialsAvatar(name = title, size = 36)
+                        Column {
+                            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(subtitle ?: "Mesajlaşma", fontSize = 12.sp, color = DerdimColors.MutedForeground)
+                        }
                     }
-                    IconButton(onClick = { actionHint = "Telefon görüşmesi için profil sayfasını kullanın." }) {
-                        Icon(Icons.Default.Phone, null, tint = DerdimColors.MutedForeground)
+                    IconButton(onClick = { scope.launch { snackbarHostState.showSnackbar("Yakında hizmetinizde") } }) {
+                        Icon(Icons.Default.Phone, contentDescription = "Telefon", tint = DerdimColors.MutedForeground)
                     }
-                    IconButton(onClick = { actionHint = "Sohbet menüsü yakında." }) { Icon(Icons.Default.MoreVert, null, tint = DerdimColors.MutedForeground) }
                 }
                 if (!listingTitle.isNullOrBlank()) {
                     Row(
@@ -133,34 +180,37 @@ fun ChatScreen(
             }
         }
 
-        actionHint?.let {
-            Text(it, fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-        }
-
-        if (!offerAmount.isNullOrBlank()) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Column(Modifier.fillMaxWidth(0.85f).background(Color.White, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Border, RoundedCornerShape(16.dp)).padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(14.dp))
-                        Text("Teklif Detayı", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground, modifier = Modifier.padding(16.dp))
+                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (!offerAmount.isNullOrBlank()) {
+                        item {
+                            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(Modifier.fillMaxWidth(0.85f).background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(14.dp))
+                                        Text("Teklif Detayı", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
+                                    }
+                                    offer.subtitle?.let { Text(it, fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 4.dp)) }
+                                    Text("$offerAmount ₺/kg", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = DerdimColors.Primary, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+                        }
                     }
-                    offer.subtitle?.let { Text(it, fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 4.dp)) }
-                    Text("$offerAmount ₺/kg", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = DerdimColors.Primary, modifier = Modifier.padding(top = 4.dp))
+                    items(messages, key = { it.id }) { m ->
+                        ChatBubble(message = m, isMine = myUserId != null && m.senderId == myUserId)
+                    }
                 }
             }
-        }
-
-        when {
-            isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground, modifier = Modifier.padding(16.dp))
-            error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-            else -> LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(messages, key = { it.id }) { m ->
-                    ChatBubble(message = m, isMine = myUserId != null && m.senderId == myUserId)
-                }
-            }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
+            )
         }
 
         Surface(color = Color.White, shadowElevation = 8.dp) {
@@ -169,8 +219,15 @@ fun ChatScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { actionHint = "Dosya ekleme yakında eklenecek." }) {
-                    Icon(Icons.Default.AttachFile, contentDescription = "Dosya", tint = DerdimColors.MutedForeground)
+                IconButton(
+                    onClick = { if (!attaching && !sending) pickImage() },
+                    enabled = !attaching && !sending,
+                ) {
+                    if (attaching) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.AttachFile, contentDescription = "Dosya", tint = DerdimColors.MutedForeground)
+                    }
                 }
                 OutlinedTextField(
                     value = text,
@@ -186,7 +243,7 @@ fun ChatScreen(
                 )
                 IconButton(
                     onClick = { if (text.isNotBlank()) sending = true },
-                    enabled = !sending && text.isNotBlank(),
+                    enabled = !sending && !attaching && text.isNotBlank(),
                     modifier = Modifier.size(44.dp).background(DerdimColors.Primary, CircleShape),
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = Color.White)
@@ -217,6 +274,7 @@ private fun statusLabel(status: OfferStatus): String = when (status) {
 
 @Composable
 private fun ChatBubble(message: MessageDto, isMine: Boolean) {
+    val imageUrl = message.text.trim().takeIf { it.startsWith(IMAGE_MESSAGE_PREFIX) }?.removePrefix(IMAGE_MESSAGE_PREFIX)?.trim()
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start,
@@ -231,7 +289,7 @@ private fun ChatBubble(message: MessageDto, isMine: Boolean) {
         }
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.82f)
+                .fillMaxWidth(if (imageUrl != null) 0.72f else 0.82f)
                 .background(
                     color = if (isMine) DerdimColors.Primary else Color.White,
                     shape = RoundedCornerShape(
@@ -241,14 +299,26 @@ private fun ChatBubble(message: MessageDto, isMine: Boolean) {
                         bottomEnd = if (isMine) 4.dp else 16.dp,
                     ),
                 )
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = if (imageUrl != null) 6.dp else 14.dp, vertical = if (imageUrl != null) 6.dp else 10.dp),
         ) {
             Column {
-                Text(
-                    text = message.text,
-                    color = if (isMine) Color.White else DerdimColors.Foreground,
-                    fontSize = 14.sp,
-                )
+                if (imageUrl != null) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Gönderilen dosya",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Text(
+                        text = message.text,
+                        color = if (isMine) Color.White else DerdimColors.Foreground,
+                        fontSize = 14.sp,
+                    )
+                }
                 Text(
                     text = message.createdAt.take(16),
                     fontSize = 10.sp,

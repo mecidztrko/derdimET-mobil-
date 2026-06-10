@@ -34,9 +34,9 @@ data class LoginResponse(
 
 @Serializable
 data class ApiResponse<T>(
-    val data: T,
+    val data: T? = null,
     val success: Boolean,
-    val message: String? = null
+    val message: String? = null,
 )
 
 @Serializable

@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.derdimet.mobil.model.PublicUserListingsDto
 import com.derdimet.mobil.model.PublicUserProfileDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFormCard
@@ -43,6 +44,7 @@ import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.theme.DerdimColors
+import com.derdimet.mobil.util.formatNumber
 
 @Composable
 fun PublicProfileScreen(
@@ -54,16 +56,24 @@ fun PublicProfileScreen(
     var loading by remember(userId) { mutableStateOf(true) }
     var error by remember(userId) { mutableStateOf<String?>(null) }
     var profile by remember(userId) { mutableStateOf<PublicUserProfileDto?>(null) }
+    var listings by remember(userId) { mutableStateOf<PublicUserListingsDto?>(null) }
 
     LaunchedEffect(userId) {
         loading = true
         error = null
         val res = marketService.fetchPublicProfile(userId)
-        if (res.success) profile = res.data else error = res.message ?: "Profil yüklenemedi"
+        if (res.success) {
+            profile = res.data
+            val listRes = marketService.fetchPublicUserListings(userId)
+            if (listRes.success) listings = listRes.data
+        } else {
+            error = res.message ?: "Profil yüklenemedi"
+        }
         loading = false
     }
 
     val p = profile
+    val openListings = listings
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(title = "Profil", showBack = true, onBack = onBack)
         when {
@@ -95,8 +105,58 @@ fun PublicProfileScreen(
                     ProfileInfoRow("Hesap tipi", p.accountType)
                     ProfileInfoRow("Adres", p.addressLine)
                 }
+                openListings?.let { data ->
+                    val meat = data.meatListings
+                    val animal = data.animalListings
+                    if (meat.isNotEmpty() || animal.isNotEmpty()) {
+                        DerdimFormCard(title = "Açık İlanlar", subtitle = "${meat.size + animal.size} ilan") {
+                            meat.forEach { item ->
+                                PublicListingRow(
+                                    title = item.title,
+                                    subtitle = item.meatType,
+                                    detail = buildString {
+                                        item.quantity?.let { append("${formatNumber(it)} kg") }
+                                        item.pricePerKg?.let {
+                                            if (isNotEmpty()) append(" · ")
+                                            append("${formatNumber(it)} ₺/kg")
+                                        }
+                                    },
+                                )
+                            }
+                            animal.forEach { item ->
+                                PublicListingRow(
+                                    title = item.type ?: "Hayvan ilanı",
+                                    subtitle = item.breed,
+                                    detail = buildString {
+                                        append("${item.quantity} baş")
+                                        item.price?.let { append(" · ${formatNumber(it)} ₺") }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
                 FigmaPrimaryButton("Mesaj At", onClick = { onMessage(p.id) }, modifier = Modifier.fillMaxWidth())
             }
+        }
+    }
+}
+
+@Composable
+private fun PublicListingRow(title: String, subtitle: String?, detail: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .background(DerdimColors.Muted.copy(0.35f), RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        subtitle?.takeIf { it.isNotBlank() }?.let {
+            Text(it, fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (detail.isNotBlank()) {
+            Text(detail, fontSize = 12.sp, color = DerdimColors.Primary, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

@@ -48,13 +48,14 @@ fun EditProfileScreen(
 
     LaunchedEffect(Unit) {
         val res = marketService.fetchMe()
-        if (res.success && res.data != null) {
-            me = res.data
-            name = res.data.name
-            phone = res.data.phone.orEmpty()
-            companyName = res.data.companyName.orEmpty()
-            city = res.data.city.orEmpty()
-            addressLine = res.data.addressLine.orEmpty()
+        val profile = res.data
+        if (res.success && profile != null) {
+            me = profile
+            name = profile.name
+            phone = profile.phone.orEmpty()
+            companyName = profile.companyName.orEmpty()
+            city = profile.city.orEmpty()
+            addressLine = profile.addressLine.orEmpty()
         }
     }
 

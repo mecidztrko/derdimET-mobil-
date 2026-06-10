@@ -3,6 +3,7 @@ package com.derdimet.mobil.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,15 +76,15 @@ fun DerdimListingCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .border(1.dp, DerdimColors.Border.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .border(1.dp, DerdimColors.Border.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
     ) {
         Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(stripColor))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(144.dp)
-                .background(Color(0xFFE2E8F0)),
+                .background(Color(0xFFE2E8F0))
+                .clickable(onClick = onClick),
         ) {
             if (imageUrl != null) {
                 AsyncImage(model = imageUrl, contentDescription = item.title, modifier = Modifier.fillMaxWidth().height(144.dp), contentScale = ContentScale.Crop)
@@ -108,7 +110,12 @@ fun DerdimListingCard(
             }
         }
 
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier.size(40.dp).background(avatarBg, RoundedCornerShape(12.dp)),
@@ -187,11 +194,11 @@ fun DerdimOfferCard(
     }
     val (strip, badgeBg, badgeFg) = cfg
     val (avatarBg, avatarFg) = avatarPalette(offer.index)
-    val offerAmt = offer.offerAmount ?: 0.0
-    val origAmt = offer.originalPrice ?: offerAmt
-    val isHigher = offerAmt > origAmt
-    val diff = abs(offerAmt - origAmt)
-    val diffPct = if (origAmt > 0) (diff / origAmt * 100) else 0.0
+    val offerAmt = offer.offerAmount
+    val origAmt = offer.originalPrice
+    val isHigher = offerAmt != null && origAmt != null && offerAmt > origAmt
+    val diff = if (offerAmt != null && origAmt != null) abs(offerAmt - origAmt) else 0.0
+    val diffPct = if (origAmt != null && origAmt > 0 && offerAmt != null) (diff / origAmt * 100) else 0.0
 
     Column(
         modifier = Modifier
@@ -225,58 +232,67 @@ fun DerdimOfferCard(
 
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DerdimOfferMetric("Teklif", "${formatNumber(offerAmt)} ₺", isHigher, Modifier.weight(1f))
-                DerdimOfferMetric("İstenen", "${formatNumber(origAmt)} ₺", modifier = Modifier.weight(1f))
+                DerdimOfferMetric("Teklif", offerAmt?.let { "${formatNumber(it)} ₺" } ?: "—", isHigher, Modifier.weight(1f))
+                DerdimOfferMetric("İstenen", origAmt?.let { "${formatNumber(it)} ₺" } ?: "—", modifier = Modifier.weight(1f))
                 DerdimOfferMetric("Miktar", offer.quantityLabel ?: "—", modifier = Modifier.weight(1f))
             }
 
-            Row(
-                modifier = Modifier.padding(top = 8.dp).background(if (isHigher) DerdimColors.Green50 else DerdimColors.Red50, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(if (isHigher) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown, null, tint = if (isHigher) DerdimColors.Green600 else DerdimColors.Red600, modifier = Modifier.size(14.dp))
-                Text(
-                    "${if (isHigher) "+" else "-"}${formatNumber(diff)} ₺ (${String.format("%.1f", diffPct)}%)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isHigher) DerdimColors.Green700 else DerdimColors.Red700,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
+            if (offerAmt != null && origAmt != null) {
+                Row(
+                    modifier = Modifier.padding(top = 8.dp).background(if (isHigher) DerdimColors.Green50 else DerdimColors.Red50, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(if (isHigher) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown, null, tint = if (isHigher) DerdimColors.Green600 else DerdimColors.Red600, modifier = Modifier.size(14.dp))
+                    Text(
+                        "${if (isHigher) "+" else "-"}${formatNumber(diff)} ₺ (${String.format("%.1f", diffPct)}%)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isHigher) DerdimColors.Green700 else DerdimColors.Red700,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Schedule, null, tint = DerdimColors.MutedForeground, modifier = Modifier.size(14.dp))
                     Text("${offer.dateLabel}${offer.city?.let { " · $it" } ?: ""}", fontSize = 11.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(start = 4.dp))
                 }
-                if (showActions) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (offer.status == OfferStatus.PENDING && onReject != null && onAccept != null) {
-                            Text(
-                                "Reddet",
-                                modifier = Modifier.clickable(onClick = onReject).background(DerdimColors.Red50, RoundedCornerShape(12.dp)).border(1.dp, DerdimColors.Red100, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = DerdimColors.Red600,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                "Kabul Et",
-                                modifier = Modifier.clickable(onClick = onAccept).background(DerdimColors.Green500, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        } else if (offer.status != OfferStatus.PENDING && onMessage != null) {
-                            Text(
-                                "Mesaj",
-                                modifier = Modifier.clickable(onClick = onMessage).background(DerdimColors.Primary.copy(0.05f), RoundedCornerShape(12.dp)).border(1.dp, DerdimColors.Primary.copy(0.3f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = DerdimColors.Primary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
+                if (showActions && (onAccept != null || onReject != null || onMessage != null)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        if (offer.status == OfferStatus.PENDING) {
+                            onReject?.let { reject ->
+                                OfferActionChip(
+                                    label = "Reddet",
+                                    onClick = reject,
+                                    background = DerdimColors.Red50,
+                                    border = DerdimColors.Red100,
+                                    textColor = DerdimColors.Red600,
+                                )
+                            }
+                            onAccept?.let { accept ->
+                                OfferActionChip(
+                                    label = "Kabul Et",
+                                    onClick = accept,
+                                    background = DerdimColors.Green500,
+                                    border = DerdimColors.Green500,
+                                    textColor = Color.White,
+                                )
+                            }
+                        }
+                        onMessage?.let { message ->
+                            OfferActionChip(
+                                label = "Mesaj",
+                                onClick = message,
+                                background = DerdimColors.Primary.copy(0.05f),
+                                border = DerdimColors.Primary.copy(0.3f),
+                                textColor = DerdimColors.Primary,
                             )
                         }
                     }
@@ -284,6 +300,28 @@ fun DerdimOfferCard(
             }
         }
     }
+}
+
+@Composable
+private fun OfferActionChip(
+    label: String,
+    onClick: () -> Unit,
+    background: Color,
+    border: Color,
+    textColor: Color,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Text(
+        label,
+        modifier = Modifier
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .background(background, RoundedCornerShape(12.dp))
+            .border(1.dp, border, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        color = textColor,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
 }
 
 @Composable

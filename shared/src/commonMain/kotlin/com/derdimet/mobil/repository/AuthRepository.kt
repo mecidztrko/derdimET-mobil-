@@ -33,11 +33,10 @@ class AuthRepository(
         lastLoginError = null
         return try {
             val response = apiService.login(email, password)
-            if (response.success) {
-                response.data.token.let { 
-                    authStorage.setToken(it)
-                    apiService.setAuthToken(it)
-                }
+            val token = response.data?.token
+            if (response.success && !token.isNullOrBlank()) {
+                authStorage.setToken(token)
+                apiService.setAuthToken(token)
                 true
             } else {
                 lastLoginError = response.message ?: "Giriş başarısız"
@@ -78,7 +77,7 @@ class AuthRepository(
     suspend fun fetchCurrentUser(): AuthUser? {
         return try {
             val response = apiService.me()
-            if (response.success) response.data.toAuthUser() else null
+            if (response.success) response.data?.toAuthUser() else null
         } catch (e: Exception) {
             null
         }

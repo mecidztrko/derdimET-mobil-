@@ -32,6 +32,7 @@ import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.model.UserRole
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
+import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
@@ -77,8 +78,21 @@ fun MyListingsScreen(
 
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(title = "İlanlarım", showBack = true, onBack = onBack)
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            actionMessage?.let { Text(it, fontSize = 12.sp, color = Color(0xFF166534)) }
+        DerdimListScreenBody(
+            header = {
+                actionMessage?.let { Text(it, fontSize = 12.sp, color = Color(0xFF166534)) }
+                if (userRole == UserRole.SLAUGHTERHOUSE) {
+                    DerdimFilterTabs(
+                        tabs = listOf(
+                            Triple("meat", "Et ilanları", meatRequests.size),
+                            Triple("purchase", "Alım talepleri", purchaseRequests.size),
+                        ),
+                        selectedKey = shTab,
+                        onSelect = { shTab = it },
+                    )
+                }
+            },
+            content = {
             when {
                 loading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
                 error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
@@ -86,7 +100,7 @@ fun MyListingsScreen(
                     if (sellerListings.isEmpty()) {
                         Text("Henüz ilanınız yok.", color = DerdimColors.MutedForeground)
                     } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(sellerListings, key = { it.id }) { listing ->
                                 ListingManageCard(
                                     title = "${listing.type} · ${listing.quantity} adet",
@@ -113,19 +127,11 @@ fun MyListingsScreen(
                     }
                 }
                 userRole == UserRole.SLAUGHTERHOUSE -> {
-                    DerdimFilterTabs(
-                        tabs = listOf(
-                            Triple("meat", "Et ilanları", meatRequests.size),
-                            Triple("purchase", "Alım talepleri", purchaseRequests.size),
-                        ),
-                        selectedKey = shTab,
-                        onSelect = { shTab = it },
-                    )
                     val items = if (shTab == "meat") meatRequests else purchaseRequests
                     if (items.isEmpty()) {
                         Text("Bu kategoride ilan yok.", color = DerdimColors.MutedForeground)
                     } else if (shTab == "meat") {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(meatRequests, key = { it.id }) { item ->
                                 ListingManageCard(
                                     title = item.title,
@@ -150,7 +156,7 @@ fun MyListingsScreen(
                             }
                         }
                     } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(purchaseRequests, key = { it.id }) { item ->
                                 ListingManageCard(
                                     title = item.title,
@@ -178,7 +184,8 @@ fun MyListingsScreen(
                 }
                 else -> Text("Bu rol için ilan yönetimi yok.", color = DerdimColors.MutedForeground)
             }
-        }
+            },
+        )
     }
 }
 

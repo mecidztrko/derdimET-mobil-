@@ -3,17 +3,17 @@ package com.derdimet.mobil.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -101,16 +101,19 @@ fun ImageCarousel(
         }
         return
     }
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 4.dp),
+    // LazyRow, verticalScroll Column içinde kullanıldığında çökme yapar; Row + horizontalScroll güvenli.
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(imageUrls) { url ->
+        imageUrls.forEach { url ->
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFFE2E8F0),
                 modifier = Modifier
+                    .width(300.dp)
                     .height(220.dp),
             ) {
                 AsyncImage(
@@ -147,7 +150,10 @@ fun OwnerCard(
     city: String?,
     onClick: () -> Unit,
 ) {
-    val displayName = companyName ?: name ?: "İlan sahibi"
+    val displayName = companyName?.takeIf { it.isNotBlank() }
+        ?: name?.takeIf { it.isNotBlank() }
+        ?: "İlan sahibi"
+    val avatarLetter = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -165,7 +171,7 @@ fun OwnerCard(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = displayName.take(1).uppercase(),
+                text = avatarLetter,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )

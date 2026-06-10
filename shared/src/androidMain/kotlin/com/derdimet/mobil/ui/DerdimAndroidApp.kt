@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.derdimet.mobil.repository.AuthRepository
 import com.derdimet.mobil.repository.PreferencesRepository
 import com.derdimet.mobil.service.ApiService
@@ -27,6 +30,12 @@ fun DerdimAndroidApp(apiBaseUrl: String) {
         PreferencesRepository(settingsStorage)
     }
     val marketService = remember(apiService) { MarketService(apiService) }
+
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components { add(KtorNetworkFetcherFactory()) }
+            .build()
+    }
 
     AppTheme {
         AppRoot(

@@ -58,22 +58,35 @@ fun SellerAnimalListingDetailScreen(
     onMakeOffer: (SellerAnimalListingDto) -> Unit,
     onMessage: (Long) -> Unit,
     onOpenSellerProfile: (Long) -> Unit,
+    initialListing: SellerAnimalListingDto? = null,
+    isFavorited: Boolean? = null,
+    favoriteError: String? = null,
+    onFavoriteToggle: (() -> Unit)? = null,
 ) {
-    var loading by remember(listingId) { mutableStateOf(true) }
+    var loading by remember(listingId) { mutableStateOf(initialListing == null) }
     var error by remember(listingId) { mutableStateOf<String?>(null) }
-    var listing by remember(listingId) { mutableStateOf<SellerAnimalListingDto?>(null) }
-    var favSubmitting by remember { mutableStateOf(false) }
+    var listing by remember(listingId) { mutableStateOf(initialListing) }
     val shareText = rememberShareTextAction()
 
     LaunchedEffect(listingId) {
-        loading = true
-        error = null
+        if (initialListing == null) {
+            loading = true
+            error = null
+        }
         val res = marketService.fetchAnimalListingDetail(listingId)
-        if (res.success) listing = res.data else error = res.message ?: "Detay yüklenemedi"
+        if (res.success && res.data != null) {
+            listing = res.data
+            error = null
+        } else if (listing == null) {
+            error = res.message ?: "Detay yüklenemedi"
+        }
         loading = false
     }
 
     val l = listing
+    val favoriteTargetId = l?.sellerId
+    val showFavorited = isFavorited ?: (l?.isFavoritedByMe == true)
+
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(
             title = "İlan Detayı",
@@ -84,16 +97,19 @@ fun SellerAnimalListingDetailScreen(
                     IconButton(onClick = {
                         shareText("derdimET hayvan ilanı: ${l?.type ?: listingId} — ${l?.quantity ?: ""} adet")
                     }) { Icon(Icons.Default.Share, null) }
-                    IconButton(onClick = { if (l?.sellerId != null) favSubmitting = true }) {
+                    IconButton(onClick = { onFavoriteToggle?.invoke() }, enabled = favoriteTargetId != null && onFavoriteToggle != null) {
                         Icon(
-                            if (l?.isFavoritedByMe == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            if (showFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             null,
-                            tint = if (l?.isFavoritedByMe == true) Color(0xFFE05C2A) else DerdimColors.MutedForeground,
+                            tint = if (showFavorited) Color(0xFFE05C2A) else DerdimColors.MutedForeground,
                         )
                     }
                 }
             },
         )
+        favoriteError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Yükleniyor...", color = DerdimColors.MutedForeground) }
             error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error ?: "Hata", color = MaterialTheme.colorScheme.error) }
@@ -165,14 +181,4 @@ fun SellerAnimalListingDetailScreen(
         }
     }
 
-    if (favSubmitting) {
-        LaunchedEffect(Unit) {
-            val sid = listing?.sellerId
-            if (sid != null) {
-                val res = marketService.toggleFavorite(sid)
-                if (res.success) listing = listing?.copy(isFavoritedByMe = res.data?.isFavoritedByMe == true)
-            }
-            favSubmitting = false
-        }
-    }
 }

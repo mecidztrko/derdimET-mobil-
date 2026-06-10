@@ -135,7 +135,16 @@ data class FavoriteSellerDto(
 
 @Serializable
 data class BuyerPurchaseItemDto(
-    val orderId: Long,
+    val orderId: Long? = null,
+    val meatOfferId: Long? = null,
+    val saleRequestId: Long? = null,
+    val saleTitle: String? = null,
+    val meatType: String? = null,
+    val slaughterhouseId: Long? = null,
+    val slaughterhouseName: String? = null,
+    val slaughterhouseCompanyName: String? = null,
+    val pricePerKg: Double? = null,
+    val quantity: Double? = null,
     val totalPrice: Double? = null,
     val status: String,
     val createdAt: String,
@@ -152,11 +161,17 @@ data class FavoriteBuyerDto(
 @Serializable
 data class SellerSaleItemDto(
     val offerId: Long,
+    val saleType: String? = null,
     val requestId: Long? = null,
     val requestTitle: String? = null,
+    val listingId: Long? = null,
+    val listingTitle: String? = null,
+    val slaughterhouseId: Long? = null,
     val slaughterhouseName: String? = null,
+    val slaughterhouseCompanyName: String? = null,
     val pricePerKg: Double? = null,
     val animalCount: Int? = null,
+    val estimatedTotal: Double? = null,
     val status: OfferStatus,
     val createdAt: String,
 )
@@ -319,12 +334,17 @@ data class FavoriteMeatBuyerDto(
 @Serializable
 data class SlaughterhousePurchaseItemDto(
     val offerId: Long,
+    val purchaseType: String? = null,
     val requestId: Long? = null,
     val requestTitle: String? = null,
+    val listingId: Long? = null,
+    val listingTitle: String? = null,
     val sellerId: Long? = null,
     val sellerName: String? = null,
+    val sellerCompanyName: String? = null,
     val pricePerKg: Double? = null,
     val animalCount: Int? = null,
+    val estimatedTotal: Double? = null,
     val status: OfferStatus,
     val createdAt: String,
 )
@@ -355,6 +375,12 @@ data class PublicUserProfileDto(
     val profileImageUrl: String? = null,
     val emailVerified: Boolean = false,
     val businessVerified: Boolean = false,
+)
+
+@Serializable
+data class PublicUserListingsDto(
+    val meatListings: List<MeatSaleRequestDto> = emptyList(),
+    val animalListings: List<SellerAnimalListingDto> = emptyList(),
 )
 
 @Serializable

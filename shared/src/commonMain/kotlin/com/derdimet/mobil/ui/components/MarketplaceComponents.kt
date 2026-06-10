@@ -141,6 +141,7 @@ fun MarketplaceSearchBar(
     placeholder: String,
     onFilterClick: () -> Unit,
     activeFilterCount: Int = 0,
+    showFilterButton: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -165,22 +166,24 @@ fun MarketplaceSearchBar(
                 unfocusedContainerColor = Color.White,
             ),
         )
-        IconButton(
-            onClick = onFilterClick,
-            modifier = Modifier
-                .size(48.dp)
-                .background(Color.White, RoundedCornerShape(14.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
-        ) {
-            Box {
-                Icon(Icons.Default.Tune, contentDescription = "Filtre", tint = MaterialTheme.colorScheme.primary)
-                if (activeFilterCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(8.dp)
-                            .background(Color(0xFFE05C2A), CircleShape),
-                    )
+        if (showFilterButton) {
+            IconButton(
+                onClick = onFilterClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.White, RoundedCornerShape(14.dp))
+                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
+            ) {
+                Box {
+                    Icon(Icons.Default.Tune, contentDescription = "Filtre", tint = MaterialTheme.colorScheme.primary)
+                    if (activeFilterCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(8.dp)
+                                .background(Color(0xFFE05C2A), CircleShape),
+                        )
+                    }
                 }
             }
         }
