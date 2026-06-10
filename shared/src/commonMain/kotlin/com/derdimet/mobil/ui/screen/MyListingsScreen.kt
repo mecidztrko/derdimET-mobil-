@@ -54,7 +54,23 @@ fun MyListingsScreen(
     var shTab by remember { mutableStateOf("meat") }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
+    var editingListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     val scope = rememberCoroutineScope()
+
+    val listingToEdit = editingListing
+    if (listingToEdit != null) {
+        SellerEditListingScreen(
+            listing = listingToEdit,
+            marketService = marketService,
+            onBack = { editingListing = null },
+            onSaved = {
+                editingListing = null
+                actionMessage = "İlan güncellendi."
+                refreshKey++
+            },
+        )
+        return
+    }
 
     LaunchedEffect(userRole, refreshKey) {
         loading = true
@@ -121,6 +137,9 @@ fun MyListingsScreen(
                                             refreshKey++
                                         }
                                     },
+                                    onEdit = if (listing.status == RequestStatus.OPEN) {
+                                        { editingListing = listing }
+                                    } else null,
                                 )
                             }
                         }
@@ -190,13 +209,14 @@ fun MyListingsScreen(
 }
 
 @Composable
-private fun ListingManageCard(
+internal fun ListingManageCard(
     title: String,
     subtitle: String,
     price: String?,
     status: RequestStatus,
     onClose: () -> Unit,
     onReopen: () -> Unit,
+    onEdit: (() -> Unit)? = null,
 ) {
     Column(
         Modifier.fillMaxWidth()
@@ -214,9 +234,12 @@ private fun ListingManageCard(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (status == RequestStatus.OPEN) {
+                onEdit?.let { edit ->
+                    FigmaSecondaryButton("Düzenle", edit, modifier = Modifier.weight(1f))
+                }
                 FigmaSecondaryButton("Kapat", onClose, modifier = Modifier.weight(1f))
             } else {
-                FigmaPrimaryButton("Yeniden aç", onReopen, modifier = Modifier.weight(1f))
+                FigmaPrimaryButton("Yeniden aç", onReopen, modifier = Modifier.fillMaxWidth())
             }
         }
     }

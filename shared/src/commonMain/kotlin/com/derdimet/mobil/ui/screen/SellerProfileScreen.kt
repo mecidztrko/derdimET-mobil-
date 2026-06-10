@@ -13,6 +13,7 @@ fun SellerProfileScreen(
     onOpenPurchases: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     RoleProfileScreen(
         userRole = UserRole.ANIMAL_SELLER,
@@ -23,5 +24,6 @@ fun SellerProfileScreen(
         onOpenPurchases = onOpenPurchases,
         onOpenNotifications = onOpenNotifications,
         onOpenEditProfile = onOpenEditProfile,
+        onOpenFavorites = onOpenFavorites,
     )
 }

@@ -88,16 +88,14 @@ fun RoleProfileScreen(
         messageCount = marketService.fetchConversations().data?.sumOf { it.unreadCount } ?: 0
         favoriteCount = when (userRole) {
             UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.size ?: 0
-            UserRole.ANIMAL_SELLER -> marketService.fetchSellerFavoriteBuyers().data?.size ?: 0
-            UserRole.SLAUGHTERHOUSE -> (marketService.fetchSlaughterhouseFavoriteSellers().data?.size ?: 0) +
-                (marketService.fetchSlaughterhouseFavoriteBuyers().data?.size ?: 0)
+            UserRole.ANIMAL_SELLER -> marketService.fetchFavoriteAnimalPurchaseRequests().data?.size ?: 0
+            UserRole.SLAUGHTERHOUSE -> marketService.fetchFavoriteAnimalListings().data?.size ?: 0
             UserRole.ADMIN -> 0
         }
         favoriteNames = when (userRole) {
             UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.map { it.title } ?: emptyList()
-            UserRole.ANIMAL_SELLER -> marketService.fetchSellerFavoriteBuyers().data?.mapNotNull { it.buyerName } ?: emptyList()
-            UserRole.SLAUGHTERHOUSE -> (marketService.fetchSlaughterhouseFavoriteSellers().data?.mapNotNull { it.sellerName } ?: emptyList()) +
-                (marketService.fetchSlaughterhouseFavoriteBuyers().data?.mapNotNull { it.buyerName } ?: emptyList())
+            UserRole.ANIMAL_SELLER -> marketService.fetchFavoriteAnimalPurchaseRequests().data?.map { it.title } ?: emptyList()
+            UserRole.SLAUGHTERHOUSE -> marketService.fetchFavoriteAnimalListings().data?.map { "${it.type} · ${it.quantity} adet" } ?: emptyList()
             UserRole.ADMIN -> emptyList()
         }
         listingCount = when (userRole) {
@@ -202,14 +200,13 @@ fun RoleProfileScreen(
                 Color(0xFFF87171),
                 favoriteCount.takeIf { it > 0 }?.toString(),
                 onClick = {
-                    if (userRole == UserRole.MEAT_BUYER) {
-                        onOpenFavorites()
-                    } else {
-                        showFavorites = !showFavorites
+                    when (userRole) {
+                        UserRole.MEAT_BUYER, UserRole.ANIMAL_SELLER, UserRole.SLAUGHTERHOUSE -> onOpenFavorites()
+                        else -> showFavorites = !showFavorites
                     }
                 },
             )
-            if (showFavorites && userRole != UserRole.MEAT_BUYER) {
+            if (showFavorites && userRole == UserRole.ADMIN) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (favoriteNames.isEmpty()) {
                         Text("Henüz favori eklenmedi.", fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(horizontal = 4.dp))

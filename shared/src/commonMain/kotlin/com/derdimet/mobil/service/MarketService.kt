@@ -187,8 +187,12 @@ class MarketService(private val apiService: ApiService) {
         return apiService.post("/api/seller/animal-listings", payload)
     }
 
-    suspend fun fetchMySellerAnimalListings(): ApiResponse<List<SellerAnimalListingDto>> {
-        return apiService.get("/api/seller/animal-listings")
+    suspend fun fetchMySellerAnimalListings(q: String? = null): ApiResponse<List<SellerAnimalListingDto>> {
+        val endpoint = buildString {
+            append("/api/seller/animal-listings")
+            if (!q.isNullOrBlank()) append("?q=").append(q.trim())
+        }
+        return apiService.get(endpoint)
     }
 
     suspend fun fetchAnimalListingDetail(id: Long): ApiResponse<SellerAnimalListingDto> {
@@ -216,10 +220,23 @@ class MarketService(private val apiService: ApiService) {
     }
 
     suspend fun toggleMeatListingFavorite(saleRequestId: Long): ApiResponse<FavoriteToggleResponse> {
-        return apiService.post(
-            "/api/buyer/meat-sale-requests/$saleRequestId/favorite/toggle",
-            body = mapOf<String, String>(),
-        )
+        return apiService.postEmpty("/api/buyer/meat-sale-requests/$saleRequestId/favorite/toggle")
+    }
+
+    suspend fun toggleAnimalPurchaseRequestFavorite(requestId: Long): ApiResponse<FavoriteToggleResponse> {
+        return apiService.postEmpty("/api/seller/animal-purchase-requests/$requestId/favorite/toggle")
+    }
+
+    suspend fun toggleAnimalListingFavorite(listingId: Long): ApiResponse<FavoriteToggleResponse> {
+        return apiService.postEmpty("/api/slaughterhouse/animal-listings/$listingId/favorite/toggle")
+    }
+
+    suspend fun fetchFavoriteAnimalListings(): ApiResponse<List<SellerAnimalListingDto>> {
+        return apiService.get("/api/slaughterhouse/favorite-animal-listings")
+    }
+
+    suspend fun fetchFavoriteAnimalPurchaseRequests(): ApiResponse<List<AnimalPurchaseRequestDto>> {
+        return apiService.get("/api/seller/favorite-animal-purchase-requests")
     }
 
     suspend fun fetchBuyerFavoriteSlaughterhouses(): ApiResponse<List<FavoriteSlaughterhouseDto>> {

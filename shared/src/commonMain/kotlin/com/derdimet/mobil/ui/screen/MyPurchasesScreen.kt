@@ -155,7 +155,7 @@ private fun SellerSaleList(items: List<SellerSaleItemDto>) {
         EmptyPurchaseHint("Henüz kabul edilmiş satış yok.")
     } else {
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items, key = { it.offerId }) { item ->
+            items(items, key = { "${it.saleType ?: "SALE"}_${it.offerId}" }) { item ->
                 PurchaseDetailCard(
                     title = item.requestTitle ?: item.listingTitle ?: "Satış",
                     subtitle = listOfNotNull(
@@ -185,7 +185,7 @@ private fun ShPurchaseList(items: List<SlaughterhousePurchaseItemDto>) {
         EmptyPurchaseHint("Henüz kabul edilmiş alım yok.")
     } else {
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items, key = { it.offerId }) { item ->
+            items(items, key = { "${it.purchaseType ?: "PURCHASE"}_${it.offerId}" }) { item ->
                 PurchaseDetailCard(
                     title = item.requestTitle ?: item.listingTitle ?: "Alım",
                     subtitle = listOfNotNull(

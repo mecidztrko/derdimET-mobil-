@@ -13,6 +13,7 @@ fun SlaughterhouseProfileScreen(
     onOpenPurchases: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     RoleProfileScreen(
         userRole = UserRole.SLAUGHTERHOUSE,
@@ -23,5 +24,6 @@ fun SlaughterhouseProfileScreen(
         onOpenPurchases = onOpenPurchases,
         onOpenNotifications = onOpenNotifications,
         onOpenEditProfile = onOpenEditProfile,
+        onOpenFavorites = onOpenFavorites,
     )
 }

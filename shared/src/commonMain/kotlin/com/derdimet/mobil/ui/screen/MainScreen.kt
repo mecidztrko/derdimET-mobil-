@@ -150,7 +150,11 @@ fun MainScreen(
                             ProfileOverlay.Purchases -> MyPurchasesScreen(userRole, marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.Notifications -> NotificationsScreen(marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.EditProfile -> EditProfileScreen(marketService, authRepository, onBack = { profileOverlay = ProfileOverlay.None }, onSaved = { profileOverlay = ProfileOverlay.None })
-                            ProfileOverlay.Favorites -> BuyerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
+                            ProfileOverlay.Favorites -> when (userRole) {
+                                UserRole.ANIMAL_SELLER -> SellerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
+                                UserRole.SLAUGHTERHOUSE -> SlaughterhouseFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
+                                else -> BuyerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
+                            }
                         }
                     }
                     AppNavTab.Create -> CreateScreenByRole(userRole, marketService)
@@ -211,8 +215,8 @@ private fun ProfileScreenByRole(
 ) {
     when (userRole) {
         UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
-        UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile)
-        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile)
+        UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
+        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
         UserRole.ADMIN -> Unit
     }
 }

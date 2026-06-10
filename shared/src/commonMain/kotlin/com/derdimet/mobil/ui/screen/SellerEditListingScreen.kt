@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,50 +22,48 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.AnimalCategory
-import com.derdimet.mobil.model.CreateSellerAnimalListingPayload
+import com.derdimet.mobil.model.SellerAnimalListingDto
+import com.derdimet.mobil.model.UpdateSellerAnimalListingPayload
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFormCard
+import com.derdimet.mobil.ui.components.DerdimImageUploadSection
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
-import com.derdimet.mobil.ui.components.DerdimImageUploadSection
 
 @Composable
-fun SellerCreateListingScreen(
+fun SellerEditListingScreen(
+    listing: SellerAnimalListingDto,
     marketService: MarketService,
+    onBack: () -> Unit,
+    onSaved: () -> Unit,
 ) {
-    var category by remember { mutableStateOf<AnimalCategory?>(null) }
-    var type by remember { mutableStateOf("") }
-    var breed by remember { mutableStateOf("") }
-    var ageMonths by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var avgWeightKg by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var imageUrlInput by remember { mutableStateOf("") }
-    val imageUrls = remember { mutableStateListOf<String>() }
+    var category by remember(listing.id) { mutableStateOf(listing.category) }
+    var type by remember(listing.id) { mutableStateOf(listing.type) }
+    var breed by remember(listing.id) { mutableStateOf(listing.breed.orEmpty()) }
+    var ageMonths by remember(listing.id) { mutableStateOf(listing.ageMonths?.toString().orEmpty()) }
+    var quantity by remember(listing.id) { mutableStateOf(listing.quantity.toString()) }
+    var avgWeightKg by remember(listing.id) { mutableStateOf(listing.avgWeightKg?.toString().orEmpty()) }
+    var price by remember(listing.id) { mutableStateOf(listing.price?.toString().orEmpty()) }
+    var location by remember(listing.id) { mutableStateOf(listing.location.orEmpty()) }
+    var description by remember(listing.id) { mutableStateOf(listing.description.orEmpty()) }
+    var imageUrlInput by remember(listing.id) { mutableStateOf("") }
+    val imageUrls = remember(listing.id) { mutableStateListOf(*listing.imageUrls.toTypedArray()) }
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    var success by remember { mutableStateOf<String?>(null) }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = FigmaStyle.ScreenBg,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-    Column(modifier = Modifier.fillMaxSize().padding(innerPadding).background(FigmaStyle.ScreenBg)) {
-        DerdimTopBar(title = "Hayvan İlanı", subtitle = "Kesimhaneler teklif verebilir")
+    Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
+        DerdimTopBar(title = "İlanı Düzenle", showBack = true, onBack = onBack)
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-        DerdimFormCard(title = "İlan Bilgileri", subtitle = "Kategori ve hayvan detayları") {
+            DerdimFormCard(title = "İlan Bilgileri", subtitle = "Açık ilanlar düzenlenebilir") {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FigmaSecondaryButton(
                         text = if (category == AnimalCategory.KUCUKBAS) "✓ Küçükbaş" else "Küçükbaş",
@@ -143,51 +138,52 @@ fun SellerCreateListingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                 )
+            }
+
+            DerdimImageUploadSection(
+                marketService = marketService,
+                imageUrls = imageUrls.toList(),
+                onImageUrlsChange = { imageUrls.clear(); imageUrls.addAll(it) },
+                imageUrlInput = imageUrlInput,
+                onImageUrlInputChange = { imageUrlInput = it },
+            )
+
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            success?.let { Text(it, color = Color(0xFF166534)) }
+
+            Spacer(Modifier.height(2.dp))
+
+            FigmaPrimaryButton(
+                text = if (submitting) "Kaydediliyor..." else "Değişiklikleri kaydet",
+                enabled = !submitting,
+                onClick = { submitting = true },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(20.dp))
         }
-
-        DerdimImageUploadSection(
-            marketService = marketService,
-            imageUrls = imageUrls.toList(),
-            onImageUrlsChange = { imageUrls.clear(); imageUrls.addAll(it) },
-            imageUrlInput = imageUrlInput,
-            onImageUrlInputChange = { imageUrlInput = it },
-        )
-
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-
-        Spacer(Modifier.height(2.dp))
-
-        FigmaPrimaryButton(
-            text = if (submitting) "Gönderiliyor..." else "İlanı yayınla",
-            enabled = !submitting,
-            onClick = { submitting = true },
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(Modifier.height(20.dp))
-        }
-    }
     }
 
     LaunchedEffect(submitting) {
         if (!submitting) return@LaunchedEffect
         error = null
+        success = null
 
-        val cat = category
         val qty = quantity.trim().toIntOrNull()
         val age = ageMonths.trim().toIntOrNull()
         val avgW = avgWeightKg.trim().replace(',', '.').toDoubleOrNull()
         val p = price.trim().replace(',', '.').toDoubleOrNull()
 
-        if (cat == null || qty == null || qty <= 0 || type.isBlank()) {
-            error = "Kategori, tür ve adet zorunlu."
+        if (qty == null || qty <= 0 || type.isBlank()) {
+            error = "Tür ve adet zorunlu."
             submitting = false
             return@LaunchedEffect
         }
 
-        val res = marketService.createSellerAnimalListing(
-            CreateSellerAnimalListingPayload(
-                category = cat,
+        val res = marketService.updateSellerAnimalListing(
+            listingId = listing.id,
+            payload = UpdateSellerAnimalListingPayload(
+                category = category,
                 type = type.trim(),
                 breed = breed.trim().ifBlank { null },
                 ageMonths = age,
@@ -196,28 +192,18 @@ fun SellerCreateListingScreen(
                 price = p,
                 location = location.trim().ifBlank { null },
                 description = description.trim().ifBlank { null },
-                imageUrls = imageUrls.toList().ifEmpty { null },
-            )
+                imageUrls = imageUrls.toList(),
+            ),
         )
 
         if (!res.success) {
-            error = res.message ?: "İlan oluşturulamadı"
+            error = res.message ?: "İlan güncellenemedi"
             submitting = false
             return@LaunchedEffect
         }
 
-        snackbarHostState.showSnackbar("İlanınız başarıyla oluşturuldu!")
-        category = null
-        type = ""
-        breed = ""
-        ageMonths = ""
-        quantity = ""
-        avgWeightKg = ""
-        price = ""
-        location = ""
-        description = ""
-        imageUrlInput = ""
-        imageUrls.clear()
+        success = "İlan güncellendi."
         submitting = false
+        onSaved()
     }
 }

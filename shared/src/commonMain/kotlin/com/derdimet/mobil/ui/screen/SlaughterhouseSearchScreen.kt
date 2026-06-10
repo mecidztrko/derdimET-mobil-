@@ -75,8 +75,8 @@ fun SlaughterhouseSearchScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var listings by remember { mutableStateOf<List<SellerAnimalListingDto>>(emptyList()) }
-    var favoriteSellerIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var favSubmittingSellerId by remember { mutableStateOf<Long?>(null) }
+    var favoriteListingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var favSubmittingListingId by remember { mutableStateOf<Long?>(null) }
     var favToggleNonce by remember { mutableIntStateOf(0) }
     var favoriteError by remember { mutableStateOf<String?>(null) }
 
@@ -115,37 +115,30 @@ fun SlaughterhouseSearchScreen(
                     val q = query.trim().lowercase()
                     it.type.lowercase().contains(q) || (it.sellerName ?: "").lowercase().contains(q)
                 }
+            favoriteListingIds = all.filter { it.isFavoritedByMe == true }.map { it.id }.toSet()
         } else {
             error = res.message ?: "İlanlar alınamadı"
         }
         isLoading = false
     }
 
-    suspend fun refreshFavorites() {
-        val fav = marketService.fetchSlaughterhouseFavoriteSellers()
-        if (fav.success) {
-            favoriteSellerIds = (fav.data ?: emptyList()).mapNotNull { it.sellerId }.toSet()
-        }
-    }
-
     LaunchedEffect(filters, query) { refresh() }
-    LaunchedEffect(Unit) { refreshFavorites() }
 
-    LaunchedEffect(favSubmittingSellerId, favToggleNonce) {
-        val sid = favSubmittingSellerId ?: return@LaunchedEffect
+    LaunchedEffect(favSubmittingListingId, favToggleNonce) {
+        val listingId = favSubmittingListingId ?: return@LaunchedEffect
         favoriteError = null
         try {
-            val res = marketService.toggleFavorite(sid)
+            val res = marketService.toggleAnimalListingFavorite(listingId)
             if (res.success) {
                 val nowFav = res.data?.isFavoritedByMe == true
-                favoriteSellerIds = toggleFavoriteIdSet(favoriteSellerIds, sid, nowFav)
-                listings = listings.map { if (it.sellerId == sid) it.copy(isFavoritedByMe = nowFav) else it }
-                detailListing = detailListing?.takeIf { it.sellerId == sid }?.copy(isFavoritedByMe = nowFav) ?: detailListing
+                favoriteListingIds = toggleFavoriteIdSet(favoriteListingIds, listingId, nowFav)
+                listings = listings.map { if (it.id == listingId) it.copy(isFavoritedByMe = nowFav) else it }
+                detailListing = detailListing?.takeIf { it.id == listingId }?.copy(isFavoritedByMe = nowFav) ?: detailListing
             } else {
                 favoriteError = res.message ?: "Favori işlemi başarısız"
             }
         } finally {
-            if (favSubmittingSellerId == sid) favSubmittingSellerId = null
+            if (favSubmittingListingId == listingId) favSubmittingListingId = null
         }
     }
 
@@ -191,17 +184,14 @@ fun SlaughterhouseSearchScreen(
 
     val detailItem = detailListing
     if (detailItem != null) {
-        val favId = detailItem.sellerId
         SellerAnimalListingDetailScreen(
             listingId = detailItem.id,
             initialListing = detailItem,
-            isFavorited = favId != null && favoriteSellerIds.contains(favId),
+            isFavorited = favoriteListingIds.contains(detailItem.id),
             favoriteError = favoriteError,
             onFavoriteToggle = {
-                if (favId != null) {
-                    favSubmittingSellerId = favId
-                    favToggleNonce++
-                }
+                favSubmittingListingId = detailItem.id
+                favToggleNonce++
             },
             marketService = marketService,
             onBack = { detailListing = null },
@@ -283,20 +273,17 @@ fun SlaughterhouseSearchScreen(
                     else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(listings.size) { index ->
                             val l = listings[index]
-                            val sid = l.sellerId
                             DerdimAnimalListingCard(
                                 item = l,
                                 index = index,
-                                isFavorited = sid != null && favoriteSellerIds.contains(sid),
+                                isFavorited = favoriteListingIds.contains(l.id),
                                 onFavoriteClick = {
-                                    if (sid != null) {
-                                        favSubmittingSellerId = sid
-                                        favToggleNonce++
-                                    }
+                                    favSubmittingListingId = l.id
+                                    favToggleNonce++
                                 },
                                 onClick = {
                                     detailListing = l.copy(
-                                        isFavoritedByMe = sid != null && favoriteSellerIds.contains(sid),
+                                        isFavoritedByMe = favoriteListingIds.contains(l.id),
                                     )
                                 },
                                 onOfferClick = { offerForListing = l },
