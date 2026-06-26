@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.MeatSaleRequestDto
 import com.derdimet.mobil.platform.rememberShareTextAction
-import com.derdimet.mobil.ui.components.DerdimReviewsPlaceholder
+import com.derdimet.mobil.ui.components.DerdimUserReviewsSection
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
@@ -51,6 +51,7 @@ import com.derdimet.mobil.ui.components.OwnerCard
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.ui.theme.DerdimTypeStyle
 import com.derdimet.mobil.util.formatNumber
+import com.derdimet.mobil.util.formatReviewSummary
 
 @Composable
 fun MeatSaleRequestDetailScreen(
@@ -68,6 +69,7 @@ fun MeatSaleRequestDetailScreen(
     var loading by remember(saleRequestId) { mutableStateOf(initialListing == null) }
     var error by remember(saleRequestId) { mutableStateOf<String?>(null) }
     var sale by remember(saleRequestId) { mutableStateOf(initialListing) }
+    var reviewSummaryText by remember(saleRequestId) { mutableStateOf<String?>(null) }
     val shareText = rememberShareTextAction()
 
     LaunchedEffect(saleRequestId) {
@@ -149,7 +151,11 @@ fun MeatSaleRequestDetailScreen(
                             Text("Satıcı", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
                             OwnerCard(name = s.slaughterhouseName, companyName = s.slaughterhouseCompanyName, city = s.slaughterhouseCity, onClick = { s.slaughterhouseId?.let(onOpenSlaughterhouseProfile) })
                         }
-                        DerdimReviewsPlaceholder()
+                        DerdimUserReviewsSection(
+                            userId = s.slaughterhouseId,
+                            marketService = marketService,
+                            onSummaryLoaded = { avg, cnt -> reviewSummaryText = formatReviewSummary(avg, cnt) },
+                        )
                         Row(Modifier.fillMaxWidth().background(DerdimColors.Amber50, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Amber100, RoundedCornerShape(16.dp)).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Default.Shield, null, tint = DerdimColors.Amber600)
                             Column {

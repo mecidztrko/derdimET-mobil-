@@ -38,6 +38,23 @@ MOBILE_RELEASE_API_BASE_URL=https://api.derdimet.com
 
 Gercek cihazda debug icin `10.0.2.2` yerine bilgisayarinin LAN IP'sini kullan.
 
+## Firebase Cloud Messaging (opsiyonel)
+
+Push bildirimleri icin Firebase yapilandirmasi gerekir:
+
+1. Firebase Console'dan Android uygulamasi olusturun (`applicationId`: `com.derdimet.mobil`).
+2. Indirilen `google-services.json` dosyasini `composeApp/` klasorune koyun.
+3. `composeApp/build.gradle.kts` icinde `plugins` bloguna su satiri ekleyin:
+   ```kotlin
+   id("com.google.gms.google-services") version "4.4.2" apply false
+   ```
+   ve modul `plugins` bloguna:
+   ```kotlin
+   alias(libs.plugins.googleServices) // veya id("com.google.gms.google-services")
+   ```
+
+`google-services.json` yoksa uygulama yine derlenir; `MainActivity` Firebase'i opsiyonel baslatir ve FCM token kaydi atlanir.
+
 ## Web (Wasm) calistirma
 
 ```bash

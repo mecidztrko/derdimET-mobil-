@@ -14,6 +14,8 @@ fun SlaughterhouseProfileScreen(
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
+    onOpenSecuritySettings: () -> Unit = {},
+    onOpenNotificationPreferences: () -> Unit = {},
 ) {
     RoleProfileScreen(
         userRole = UserRole.SLAUGHTERHOUSE,
@@ -25,5 +27,7 @@ fun SlaughterhouseProfileScreen(
         onOpenNotifications = onOpenNotifications,
         onOpenEditProfile = onOpenEditProfile,
         onOpenFavorites = onOpenFavorites,
+        onOpenSecuritySettings = onOpenSecuritySettings,
+        onOpenNotificationPreferences = onOpenNotificationPreferences,
     )
 }

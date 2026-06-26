@@ -553,25 +553,6 @@ fun DerdimAnimalListingCard(
 }
 
 @Composable
-fun DerdimReviewsPlaceholder(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(16.dp))
-            .padding(16.dp),
-    ) {
-        Text("Değerlendirmeler", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-        Text(
-            "Kullanıcı değerlendirmeleri yakında eklenecek.",
-            fontSize = 13.sp,
-            color = DerdimColors.MutedForeground,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-}
-
-@Composable
 fun DerdimReviewsSection(
     rating: Double,
     reviewCount: Int,

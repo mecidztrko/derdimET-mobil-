@@ -72,16 +72,15 @@ fun RoleProfileScreen(
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
+    onOpenSecuritySettings: () -> Unit = {},
+    onOpenNotificationPreferences: () -> Unit = {},
 ) {
     var me by remember { mutableStateOf<MeResponse?>(null) }
     var offerCount by remember { mutableStateOf(0) }
     var messageCount by remember { mutableStateOf(0) }
     var favoriteCount by remember { mutableStateOf(0) }
     var showRoleSwitcher by remember { mutableStateOf(false) }
-    var showFavorites by remember { mutableStateOf(false) }
     var listingCount by remember { mutableStateOf(0) }
-    var favoriteNames by remember { mutableStateOf<List<String>>(emptyList()) }
-    var menuHint by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(userRole) {
         me = marketService.fetchMe().data
@@ -90,19 +89,13 @@ fun RoleProfileScreen(
             UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.size ?: 0
             UserRole.ANIMAL_SELLER -> marketService.fetchFavoriteAnimalPurchaseRequests().data?.size ?: 0
             UserRole.SLAUGHTERHOUSE -> marketService.fetchFavoriteAnimalListings().data?.size ?: 0
-            UserRole.ADMIN -> 0
-        }
-        favoriteNames = when (userRole) {
-            UserRole.MEAT_BUYER -> marketService.fetchBuyerFavoriteMeatListings().data?.map { it.title } ?: emptyList()
-            UserRole.ANIMAL_SELLER -> marketService.fetchFavoriteAnimalPurchaseRequests().data?.map { it.title } ?: emptyList()
-            UserRole.SLAUGHTERHOUSE -> marketService.fetchFavoriteAnimalListings().data?.map { "${it.type} · ${it.quantity} adet" } ?: emptyList()
-            UserRole.ADMIN -> emptyList()
+            else -> 0
         }
         listingCount = when (userRole) {
             UserRole.MEAT_BUYER -> marketService.fetchMyPurchases().data?.size ?: 0
             UserRole.ANIMAL_SELLER -> marketService.fetchMySellerAnimalListings().data?.size ?: 0
             UserRole.SLAUGHTERHOUSE -> marketService.fetchMySlaughterhouseMeatSaleRequests().data?.size ?: 0
-            UserRole.ADMIN -> 0
+            else -> 0
         }
         offerCount = when (userRole) {
             UserRole.MEAT_BUYER -> marketService.fetchMyBuyerMeatOffers().data?.size ?: 0
@@ -110,7 +103,7 @@ fun RoleProfileScreen(
                 (marketService.fetchMyAnimalOffers().data?.size ?: 0)
             UserRole.SLAUGHTERHOUSE -> (marketService.fetchSlaughterhouseIncomingMeatOffers().data?.size ?: 0) +
                 (marketService.fetchMySlaughterhouseListingOffers().data?.size ?: 0)
-            UserRole.ADMIN -> 0
+            else -> 0
         }
     }
 
@@ -118,13 +111,13 @@ fun RoleProfileScreen(
         UserRole.MEAT_BUYER -> "Et Alıcı"
         UserRole.ANIMAL_SELLER -> "Hayvan Satıcı"
         UserRole.SLAUGHTERHOUSE -> "Kesimhane"
-        UserRole.ADMIN -> "Yönetici"
+        else -> "Kullanıcı"
     }
     val roleBg = when (userRole) {
         UserRole.MEAT_BUYER -> DerdimColors.Secondary to Color(0xFF1D4ED8)
         UserRole.ANIMAL_SELLER -> Color(0xFFD1FAE5) to Color(0xFF047857)
         UserRole.SLAUGHTERHOUSE -> Color(0xFFF3E8FF) to Color(0xFF7E22CE)
-        UserRole.ADMIN -> DerdimColors.Muted to DerdimColors.MutedForeground
+        else -> DerdimColors.Muted to DerdimColors.MutedForeground
     }
 
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
@@ -199,24 +192,8 @@ fun RoleProfileScreen(
                 "Favorilerim",
                 Color(0xFFF87171),
                 favoriteCount.takeIf { it > 0 }?.toString(),
-                onClick = {
-                    when (userRole) {
-                        UserRole.MEAT_BUYER, UserRole.ANIMAL_SELLER, UserRole.SLAUGHTERHOUSE -> onOpenFavorites()
-                        else -> showFavorites = !showFavorites
-                    }
-                },
+                onClick = onOpenFavorites,
             )
-            if (showFavorites && userRole == UserRole.ADMIN) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (favoriteNames.isEmpty()) {
-                        Text("Henüz favori eklenmedi.", fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(horizontal = 4.dp))
-                    } else {
-                        favoriteNames.forEach { name ->
-                            Text("• $name", fontSize = 13.sp, color = DerdimColors.Foreground, modifier = Modifier.padding(horizontal = 8.dp))
-                        }
-                    }
-                }
-            }
             if (userRole == UserRole.MEAT_BUYER) {
                 ProfileMenuItem(Icons.Default.ShoppingBag, "Alışverişlerim", Color(0xFF3B82F6), onClick = onOpenPurchases)
             } else {
@@ -226,10 +203,9 @@ fun RoleProfileScreen(
 
             SectionTitle("AYARLAR")
             ProfileMenuItem(Icons.Default.Notifications, "Bildirimler", Color(0xFFF59E0B), messageCount.takeIf { it > 0 }?.toString(), onClick = onOpenNotifications)
-            ProfileMenuItem(Icons.Default.Security, "Gizlilik ve Güvenlik", DerdimColors.Success, onClick = { menuHint = "Hesap güvenliği web panelinden yönetilir." })
-            ProfileMenuItem(Icons.Default.Settings, "Genel Ayarlar", DerdimColors.MutedForeground, onClick = { menuHint = "Dil ve tema ayarları yakında eklenecek." })
-            ProfileMenuItem(Icons.Default.Help, "Yardım", DerdimColors.MutedForeground, onClick = { menuHint = "destek@derdimet.local adresine yazabilirsiniz." })
-            menuHint?.let { Text(it, fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(horizontal = 4.dp)) }
+            ProfileMenuItem(Icons.Default.Security, "Gizlilik ve Güvenlik", DerdimColors.Success, onClick = onOpenSecuritySettings)
+            ProfileMenuItem(Icons.Default.Settings, "Bildirim Tercihleri", DerdimColors.MutedForeground, onClick = onOpenNotificationPreferences)
+            ProfileMenuItem(Icons.Default.Help, "Yardım", DerdimColors.MutedForeground, onClick = { })
 
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(16.dp)).clickable(onClick = onLogout).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(36.dp).background(DerdimColors.Red50, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {

@@ -101,6 +101,15 @@ class AuthRepository(
         }
     }
 
+    suspend fun changePassword(currentPassword: String, newPassword: String): String? {
+        return try {
+            val response = apiService.changePassword(currentPassword, newPassword)
+            if (response.success) null else response.message ?: "Şifre güncellenemedi"
+        } catch (e: Exception) {
+            e.message ?: "Sunucuya bağlanılamadı"
+        }
+    }
+
     suspend fun updateProfile(payload: UpdateProfilePayload): MeResponse? {
         return try {
             val response = apiService.patch<MeResponse>("/api/me", payload)

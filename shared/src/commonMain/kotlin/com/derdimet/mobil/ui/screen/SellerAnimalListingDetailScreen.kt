@@ -39,7 +39,7 @@ import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.platform.rememberShareTextAction
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DetailGridCell
-import com.derdimet.mobil.ui.components.DerdimReviewsPlaceholder
+import com.derdimet.mobil.ui.components.DerdimUserReviewsSection
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
@@ -49,6 +49,7 @@ import com.derdimet.mobil.ui.components.InitialsAvatar
 import com.derdimet.mobil.ui.components.OwnerCard
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.formatNumber
+import com.derdimet.mobil.util.formatReviewSummary
 
 @Composable
 fun SellerAnimalListingDetailScreen(
@@ -66,6 +67,7 @@ fun SellerAnimalListingDetailScreen(
     var loading by remember(listingId) { mutableStateOf(initialListing == null) }
     var error by remember(listingId) { mutableStateOf<String?>(null) }
     var listing by remember(listingId) { mutableStateOf(initialListing) }
+    var reviewSummaryText by remember(listingId) { mutableStateOf<String?>(null) }
     val shareText = rememberShareTextAction()
 
     LaunchedEffect(listingId) {
@@ -156,7 +158,11 @@ fun SellerAnimalListingDetailScreen(
                             Text("Satıcı", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
                             OwnerCard(name = l.sellerName, companyName = l.sellerCompanyName, city = l.sellerCity, onClick = { l.sellerId?.let(onOpenSellerProfile) })
                         }
-                        DerdimReviewsPlaceholder()
+                        DerdimUserReviewsSection(
+                            userId = l.sellerId,
+                            marketService = marketService,
+                            onSummaryLoaded = { avg, cnt -> reviewSummaryText = formatReviewSummary(avg, cnt) },
+                        )
                         Row(Modifier.fillMaxWidth().background(DerdimColors.Amber50, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Amber100, RoundedCornerShape(16.dp)).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Default.Shield, null, tint = DerdimColors.Amber600)
                             Column {
@@ -171,7 +177,7 @@ fun SellerAnimalListingDetailScreen(
                         InitialsAvatar(l.sellerCompanyName ?: l.sellerName, size = 40)
                         Column(Modifier.weight(1f)) {
                             Text(l.sellerCompanyName ?: l.sellerName ?: "Satıcı", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("4.6 · 52 değerlendirme", fontSize = 11.sp, color = DerdimColors.MutedForeground)
+                            Text(reviewSummaryText ?: "Değerlendirme yükleniyor...", fontSize = 11.sp, color = DerdimColors.MutedForeground)
                         }
                         FigmaSecondaryButton("Mesaj", onClick = { l.sellerId?.let(onMessage) }, enabled = l.sellerId != null)
                         FigmaPrimaryButton("Teklif Ver", onClick = { onMakeOffer(l) })

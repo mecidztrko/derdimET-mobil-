@@ -335,4 +335,34 @@ class MarketService(private val apiService: ApiService) {
     ): ApiResponse<AnimalPurchaseRequestDto> {
         return apiService.patch("/api/slaughterhouse/animal-purchase-requests/$requestId", payload)
     }
+
+    suspend fun changePassword(currentPassword: String, newPassword: String): ApiResponse<MessageResponse> {
+        return apiService.changePassword(currentPassword, newPassword)
+    }
+
+    suspend fun fetchNotificationPreferences(): ApiResponse<NotificationPreferencesDto> {
+        return apiService.get("/api/me/notifications/preferences")
+    }
+
+    suspend fun updateNotificationPreferences(
+        payload: UpdateNotificationPreferencesRequest,
+    ): ApiResponse<NotificationPreferencesDto> {
+        return apiService.put("/api/me/notifications/preferences", payload)
+    }
+
+    suspend fun registerDeviceToken(payload: RegisterDeviceTokenRequest): ApiResponse<MessageResponse> {
+        return apiService.post("/api/me/notifications/device-tokens", payload)
+    }
+
+    suspend fun fetchUserReviews(userId: Long): ApiResponse<List<ReviewDto>> {
+        return apiService.get("/api/users/$userId/reviews")
+    }
+
+    suspend fun fetchUserReviewSummary(userId: Long): ApiResponse<UserReviewSummaryDto> {
+        return apiService.get("/api/users/$userId/reviews/summary")
+    }
+
+    suspend fun createReview(payload: CreateReviewRequest): ApiResponse<ReviewDto> {
+        return apiService.post("/api/reviews", payload)
+    }
 }

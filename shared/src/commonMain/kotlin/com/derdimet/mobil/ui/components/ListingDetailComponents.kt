@@ -25,6 +25,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.derdimet.mobil.model.ListingReview
+import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.theme.DerdimColors
+import com.derdimet.mobil.util.toListingReview
 
 @Composable
 fun DetailGridCell(label: String, value: String, modifier: Modifier = Modifier) {
@@ -186,4 +194,37 @@ fun OwnerCard(
         }
         Text(text = "Detay >", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
     }
+}
+
+@Composable
+fun DerdimUserReviewsSection(
+    userId: Long?,
+    marketService: MarketService,
+    modifier: Modifier = Modifier,
+    onSummaryLoaded: ((averageRating: Double, reviewCount: Long) -> Unit)? = null,
+) {
+    var reviews by remember(userId) { mutableStateOf<List<ListingReview>>(emptyList()) }
+    var rating by remember(userId) { mutableStateOf(0.0) }
+    var count by remember(userId) { mutableStateOf(0) }
+
+    LaunchedEffect(userId) {
+        if (userId == null) return@LaunchedEffect
+        val summaryRes = marketService.fetchUserReviewSummary(userId)
+        if (summaryRes.success && summaryRes.data != null) {
+            rating = summaryRes.data.averageRating
+            count = summaryRes.data.reviewCount.toInt()
+            onSummaryLoaded?.invoke(summaryRes.data.averageRating, summaryRes.data.reviewCount)
+        }
+        val reviewsRes = marketService.fetchUserReviews(userId)
+        if (reviewsRes.success) {
+            reviews = reviewsRes.data?.map { it.toListingReview() } ?: emptyList()
+        }
+    }
+
+    DerdimReviewsSection(
+        rating = rating,
+        reviewCount = count,
+        reviews = reviews,
+        modifier = modifier,
+    )
 }

@@ -13,6 +13,8 @@ fun BuyerProfileScreen(
     onOpenNotifications: () -> Unit = {},
     onOpenEditProfile: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
+    onOpenSecuritySettings: () -> Unit = {},
+    onOpenNotificationPreferences: () -> Unit = {},
 ) {
     RoleProfileScreen(
         userRole = UserRole.MEAT_BUYER,
@@ -23,5 +25,7 @@ fun BuyerProfileScreen(
         onOpenNotifications = onOpenNotifications,
         onOpenEditProfile = onOpenEditProfile,
         onOpenFavorites = onOpenFavorites,
+        onOpenSecuritySettings = onOpenSecuritySettings,
+        onOpenNotificationPreferences = onOpenNotificationPreferences,
     )
 }

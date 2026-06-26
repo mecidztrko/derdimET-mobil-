@@ -1,6 +1,7 @@
 package com.derdimet.mobil.service
 
 import com.derdimet.mobil.model.ApiResponse
+import com.derdimet.mobil.model.ChangePasswordRequest
 import com.derdimet.mobil.model.EmailOnlyRequest
 import com.derdimet.mobil.model.LoginResponse
 import com.derdimet.mobil.model.MeResponse
@@ -107,6 +108,13 @@ class ApiService(
         )
     }
 
+    suspend fun changePassword(currentPassword: String, newPassword: String): ApiResponse<MessageResponse> {
+        return post(
+            "/api/auth/password/change",
+            ChangePasswordRequest(currentPassword, newPassword),
+        )
+    }
+
     suspend fun register(payload: Map<String, Any?>): ApiResponse<Unit> {
         val response: HttpResponse = client.post("/api/register") {
             setBody(payload)
@@ -149,6 +157,23 @@ class ApiService(
         return try {
             val response: HttpResponse = client.get(endpoint) {
                 auth()
+            }
+            if (response.status.isSuccess()) {
+                ApiResponse(data = response.body(), success = true)
+            } else {
+                ApiResponse(data = null, success = false, message = errorMessageFrom(response))
+            }
+        } catch (e: Exception) {
+            rethrowIfCancelled(e)
+            ApiResponse(data = null, success = false, message = e.message)
+        }
+    }
+
+    suspend inline fun <reified T> put(endpoint: String, body: Any): ApiResponse<T> {
+        return try {
+            val response: HttpResponse = client.put(endpoint) {
+                auth()
+                setBody(body)
             }
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)

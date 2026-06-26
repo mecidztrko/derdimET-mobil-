@@ -60,6 +60,8 @@ private sealed class ProfileOverlay {
     data object Notifications : ProfileOverlay()
     data object EditProfile : ProfileOverlay()
     data object Favorites : ProfileOverlay()
+    data object ChangePassword : ProfileOverlay()
+    data object NotificationPreferences : ProfileOverlay()
 }
 
 @Composable
@@ -143,6 +145,8 @@ fun MainScreen(
                             onOpenNotifications = { profileOverlay = ProfileOverlay.Notifications },
                             onOpenEditProfile = { profileOverlay = ProfileOverlay.EditProfile },
                             onOpenFavorites = { profileOverlay = ProfileOverlay.Favorites },
+                            onOpenSecuritySettings = { profileOverlay = ProfileOverlay.ChangePassword },
+                            onOpenNotificationPreferences = { profileOverlay = ProfileOverlay.NotificationPreferences },
                         )
                         when (profileOverlay) {
                             ProfileOverlay.None -> Unit
@@ -150,6 +154,8 @@ fun MainScreen(
                             ProfileOverlay.Purchases -> MyPurchasesScreen(userRole, marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.Notifications -> NotificationsScreen(marketService) { profileOverlay = ProfileOverlay.None }
                             ProfileOverlay.EditProfile -> EditProfileScreen(marketService, authRepository, onBack = { profileOverlay = ProfileOverlay.None }, onSaved = { profileOverlay = ProfileOverlay.None })
+                            ProfileOverlay.ChangePassword -> ChangePasswordScreen(authRepository, onBack = { profileOverlay = ProfileOverlay.None })
+                            ProfileOverlay.NotificationPreferences -> NotificationPreferencesScreen(marketService, onBack = { profileOverlay = ProfileOverlay.None })
                             ProfileOverlay.Favorites -> when (userRole) {
                                 UserRole.ANIMAL_SELLER -> SellerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
                                 UserRole.SLAUGHTERHOUSE -> SlaughterhouseFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
@@ -212,11 +218,13 @@ private fun ProfileScreenByRole(
     onOpenNotifications: () -> Unit,
     onOpenEditProfile: () -> Unit,
     onOpenFavorites: () -> Unit = {},
+    onOpenSecuritySettings: () -> Unit = {},
+    onOpenNotificationPreferences: () -> Unit = {},
 ) {
     when (userRole) {
-        UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
-        UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
-        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites)
+        UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
+        UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
+        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
         UserRole.ADMIN -> Unit
     }
 }

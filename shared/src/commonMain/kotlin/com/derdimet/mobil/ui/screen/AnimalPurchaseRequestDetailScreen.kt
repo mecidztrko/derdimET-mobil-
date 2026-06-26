@@ -39,7 +39,7 @@ import com.derdimet.mobil.model.AnimalPurchaseRequestDto
 import com.derdimet.mobil.platform.rememberShareTextAction
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DetailGridCell
-import com.derdimet.mobil.ui.components.DerdimReviewsPlaceholder
+import com.derdimet.mobil.ui.components.DerdimUserReviewsSection
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
@@ -48,6 +48,7 @@ import com.derdimet.mobil.ui.components.InitialsAvatar
 import com.derdimet.mobil.ui.components.OwnerCard
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.formatNumber
+import com.derdimet.mobil.util.formatReviewSummary
 
 @Composable
 fun AnimalPurchaseRequestDetailScreen(
@@ -65,6 +66,7 @@ fun AnimalPurchaseRequestDetailScreen(
     var loading by remember(requestId) { mutableStateOf(initialRequest == null) }
     var error by remember(requestId) { mutableStateOf<String?>(null) }
     var req by remember(requestId) { mutableStateOf(initialRequest) }
+    var reviewSummaryText by remember(requestId) { mutableStateOf<String?>(null) }
     val shareText = rememberShareTextAction()
 
     LaunchedEffect(requestId) {
@@ -152,7 +154,11 @@ fun AnimalPurchaseRequestDetailScreen(
                             Text("Kesimhane", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
                             OwnerCard(name = r.slaughterhouseName, companyName = r.slaughterhouseCompanyName, city = r.slaughterhouseCity, onClick = { r.slaughterhouseId?.let(onOpenSlaughterhouseProfile) })
                         }
-                        DerdimReviewsPlaceholder()
+                        DerdimUserReviewsSection(
+                            userId = r.slaughterhouseId,
+                            marketService = marketService,
+                            onSummaryLoaded = { avg, cnt -> reviewSummaryText = formatReviewSummary(avg, cnt) },
+                        )
                         Row(Modifier.fillMaxWidth().background(DerdimColors.Amber50, RoundedCornerShape(16.dp)).border(1.dp, DerdimColors.Amber100, RoundedCornerShape(16.dp)).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Default.Shield, null, tint = DerdimColors.Amber600)
                             Column {
@@ -167,7 +173,7 @@ fun AnimalPurchaseRequestDetailScreen(
                         InitialsAvatar(r.slaughterhouseCompanyName ?: r.slaughterhouseName, size = 40)
                         Column(Modifier.weight(1f)) {
                             Text(r.slaughterhouseCompanyName ?: r.slaughterhouseName ?: "Kesimhane", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("4.7 · 86 değerlendirme", fontSize = 11.sp, color = DerdimColors.MutedForeground)
+                            Text(reviewSummaryText ?: "Değerlendirme yükleniyor...", fontSize = 11.sp, color = DerdimColors.MutedForeground)
                         }
                         FigmaSecondaryButton("Mesaj", onClick = { r.slaughterhouseId?.let(onMessage) }, enabled = r.slaughterhouseId != null)
                         FigmaPrimaryButton("Teklif Ver", onClick = { onMakeOffer(r) })

@@ -8,6 +8,7 @@ import com.derdimet.mobil.ui.DerdimAndroidApp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebasePushSetup.initIfAvailable(this)
         setContent {
             DerdimAndroidApp(apiBaseUrl = BuildConfig.API_BASE_URL)
         }
