@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,39 +23,26 @@ import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimActionBadge
 import com.derdimet.mobil.ui.components.DerdimConversationRow
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.MarketplaceSearchBar
 import com.derdimet.mobil.ui.theme.DerdimColors
+import com.derdimet.mobil.viewmodel.MessagesInboxViewModel
 
 @Composable
-fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var conversations by remember { mutableStateOf<List<ConversationItemDto>>(emptyList()) }
-    var lastMessagePreview by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+fun MessagesInboxScreen(
+    viewModel: MessagesInboxViewModel,
+    marketService: MarketService,
+    refreshKey: Int = 0,
+) {
+    val uiState by viewModel.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var openProfileUserId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(refreshKey) {
-        isLoading = true
-        error = null
-        val res = marketService.fetchConversations()
-        if (res.success) {
-            conversations = res.data ?: emptyList()
-            val previews = mutableMapOf<Long, String>()
-            conversations.take(15).forEach { convo ->
-                val msgRes = marketService.fetchMessages(convo.conversationId)
-                if (msgRes.success) {
-                    msgRes.data?.lastOrNull()?.text?.let { previews[convo.conversationId] = it }
-                }
-            }
-            lastMessagePreview = previews
-        } else {
-            error = res.message ?: "Mesajlar alınamadı"
-        }
-        isLoading = false
+        viewModel.load()
     }
 
     val profileUserId = openProfileUserId
@@ -65,10 +53,8 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
             onBack = { openProfileUserId = null },
             onMessage = { id ->
                 openProfileUserId = null
-                val existing = conversations.find { it.otherUserId == id }
-                if (existing != null) {
-                    selectedConversation = existing
-                }
+                val existing = uiState.conversations.find { it.otherUserId == id }
+                if (existing != null) selectedConversation = existing
             },
         )
         return
@@ -88,16 +74,17 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
         return
     }
 
-    val unreadTotal = conversations.sumOf { it.unreadCount }
-    val filtered = remember(conversations, query) {
+    val unreadTotal = uiState.conversations.sumOf { it.unreadCount }
+    val filtered = remember(uiState.conversations, query) {
         val q = query.trim().lowercase()
-        if (q.isBlank()) conversations
-        else conversations.filter {
+        if (q.isBlank()) uiState.conversations
+        else uiState.conversations.filter {
             (it.otherUserName ?: "").lowercase().contains(q) ||
                 (it.otherUserEmail ?: "").lowercase().contains(q) ||
                 (it.otherUserRole ?: "").lowercase().contains(q)
         }
     }
+    val offlineHint = if (uiState.isOfflineCache) "Çevrimdışı — son konuşmalar gösteriliyor" else null
 
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(
@@ -116,21 +103,26 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
                 Text("${filtered.size} konuşma", fontSize = 12.sp, color = DerdimColors.MutedForeground)
             },
             content = {
-                when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    filtered.isEmpty() -> Text("Henüz mesaj yok.", color = DerdimColors.MutedForeground)
-                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DerdimScreenState(
+                    loading = uiState.isLoading,
+                    error = if (!uiState.isLoading && uiState.conversations.isEmpty()) uiState.error else null,
+                    empty = !uiState.isLoading && uiState.error == null && filtered.isEmpty(),
+                    emptyTitle = "Henüz mesaj yok",
+                    emptyMessage = "İlan veya teklif üzerinden sohbet başlatabilirsiniz.",
+                    offlineHint = offlineHint,
+                    onRetry = { viewModel.load() },
+                ) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         itemsIndexed(filtered, key = { _, it -> it.conversationId }) { index, item ->
                             DerdimConversationRow(
                                 index = index,
                                 name = item.otherUserName ?: item.otherUserEmail ?: "Kullanıcı",
                                 company = roleLabelTr(item.otherUserRole),
                                 listingTitle = null,
-                                lastMessage = lastMessagePreview[item.conversationId] ?: if (item.lastMessageAt != null) "Mesajlaşmaya devam et" else null,
-                                time = item.lastMessageAt?.take(16),
+                                lastMessage = uiState.lastMessagePreview[item.conversationId]
+                                    ?: if (item.lastMessageAt != null) "Mesajlaşmaya devam et" else null,
+                                time = item.lastMessageAt?.take(10),
                                 unread = item.unreadCount,
-                                online = false,
                                 onClick = { selectedConversation = item },
                             )
                         }
@@ -142,8 +134,9 @@ fun MessagesInboxScreen(marketService: MarketService, refreshKey: Int = 0) {
 }
 
 private fun roleLabelTr(role: String?): String? = when (role) {
+    "MEAT_BUYER" -> "Et alıcı"
+    "ANIMAL_SELLER" -> "Hayvan satıcı"
     "SLAUGHTERHOUSE" -> "Kesimhane"
-    "ANIMAL_SELLER" -> "Hayvan Satıcı"
-    "MEAT_BUYER" -> "Et Alıcı"
+    "ADMIN" -> "Yönetici"
     else -> role
 }

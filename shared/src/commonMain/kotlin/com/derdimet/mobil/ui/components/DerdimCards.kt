@@ -55,6 +55,7 @@ import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.ui.theme.DerdimTypeStyle
 import com.derdimet.mobil.ui.theme.avatarPalette
 import com.derdimet.mobil.util.formatNumber
+import com.derdimet.mobil.util.formatOneDecimal
 import kotlin.math.abs
 
 @Composable
@@ -244,7 +245,7 @@ fun DerdimOfferCard(
                 ) {
                     Icon(if (isHigher) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown, null, tint = if (isHigher) DerdimColors.Green600 else DerdimColors.Red600, modifier = Modifier.size(14.dp))
                     Text(
-                        "${if (isHigher) "+" else "-"}${formatNumber(diff)} ₺ (${String.format("%.1f", diffPct)}%)",
+                        "${if (isHigher) "+" else "-"}${formatNumber(diff)} ₺ (${formatOneDecimal(diffPct)}%)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isHigher) DerdimColors.Green700 else DerdimColors.Red700,
@@ -573,7 +574,7 @@ fun DerdimReviewsSection(
             Text("Değerlendirmeler", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(16.dp))
-                Text(String.format("%.1f", rating), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+                Text(formatOneDecimal(rating), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
                 Text("($reviewCount)", fontSize = 12.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(start = 4.dp))
             }
         }

@@ -74,6 +74,7 @@ fun RoleProfileScreen(
     onOpenFavorites: () -> Unit = {},
     onOpenSecuritySettings: () -> Unit = {},
     onOpenNotificationPreferences: () -> Unit = {},
+    onOpenBusinessVerification: () -> Unit = {},
 ) {
     var me by remember { mutableStateOf<MeResponse?>(null) }
     var offerCount by remember { mutableStateOf(0) }
@@ -202,6 +203,9 @@ fun RoleProfileScreen(
             }
 
             SectionTitle("AYARLAR")
+            if (me?.accountType == "BUSINESS") {
+                ProfileMenuItem(Icons.Default.Business, "Kurumsal doğrulama", DerdimColors.Primary, onClick = onOpenBusinessVerification)
+            }
             ProfileMenuItem(Icons.Default.Notifications, "Bildirimler", Color(0xFFF59E0B), messageCount.takeIf { it > 0 }?.toString(), onClick = onOpenNotifications)
             ProfileMenuItem(Icons.Default.Security, "Gizlilik ve Güvenlik", DerdimColors.Success, onClick = onOpenSecuritySettings)
             ProfileMenuItem(Icons.Default.Settings, "Bildirim Tercihleri", DerdimColors.MutedForeground, onClick = onOpenNotificationPreferences)

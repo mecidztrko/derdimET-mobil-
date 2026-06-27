@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.UpdateNotificationPreferencesRequest
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFormCard
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.theme.DerdimColors
@@ -45,9 +47,10 @@ fun NotificationPreferencesScreen(
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var refreshKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshKey) {
         loading = true
         error = null
         val res = marketService.fetchNotificationPreferences()
@@ -80,19 +83,23 @@ fun NotificationPreferencesScreen(
 
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(title = "Bildirim Tercihleri", showBack = true, onBack = onBack)
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        DerdimScreenState(
+            loading = loading,
+            error = error,
+            empty = false,
+            onRetry = { refreshKey++ },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Text(
-                "Push bildirimlerini hangi konularda almak istediğinizi seçin.",
-                fontSize = 14.sp,
-                color = DerdimColors.MutedForeground,
-            )
-            when {
-                loading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                else -> {
-                    DerdimFormCard(title = "Push Bildirimleri", subtitle = if (saving) "Kaydediliyor..." else null) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Push bildirimlerini hangi konularda almak istediğinizi seçin.",
+                    fontSize = 14.sp,
+                    color = DerdimColors.MutedForeground,
+                )
+                DerdimFormCard(title = "Push Bildirimleri", subtitle = if (saving) "Kaydediliyor..." else null) {
                         PreferenceSwitch(
                             label = "Teklif bildirimleri",
                             description = "Yeni teklifler ve teklif durumu güncellemeleri",
@@ -124,9 +131,8 @@ fun NotificationPreferencesScreen(
                             },
                         )
                     }
-                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
 }

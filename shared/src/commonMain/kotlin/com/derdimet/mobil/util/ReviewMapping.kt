@@ -2,6 +2,7 @@ package com.derdimet.mobil.util
 
 import com.derdimet.mobil.model.ListingReview
 import com.derdimet.mobil.model.ReviewDto
+import com.derdimet.mobil.util.formatOneDecimal
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -36,5 +37,5 @@ fun formatReviewTimeAgo(createdAt: String?): String {
 
 fun formatReviewSummary(averageRating: Double, reviewCount: Long): String {
     if (reviewCount <= 0L) return "Henüz değerlendirme yok"
-    return String.format("%.1f · %d değerlendirme", averageRating, reviewCount)
+    return "${formatOneDecimal(averageRating)} · $reviewCount değerlendirme"
 }

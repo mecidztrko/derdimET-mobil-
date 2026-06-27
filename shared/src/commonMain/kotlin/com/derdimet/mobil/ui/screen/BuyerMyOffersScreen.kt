@@ -27,6 +27,7 @@ import com.derdimet.mobil.ui.components.DerdimActionBadge
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimOfferCard
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimStatsRow
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
@@ -135,11 +136,15 @@ fun BuyerMyOffersScreen(marketService: MarketService) {
                 )
             },
             content = {
-                when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    filtered.isEmpty() -> Text("Bu filtrede teklif yok.", color = DerdimColors.MutedForeground)
-                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DerdimScreenState(
+                    loading = isLoading,
+                    error = error,
+                    empty = filtered.isEmpty(),
+                    emptyTitle = if (offers.isEmpty()) "Henüz teklif yok" else "Bu filtrede teklif yok",
+                    emptyMessage = if (offers.isEmpty()) "Et ilanlarına teklif vererek burada görebilirsiniz." else "Farklı bir filtre deneyin.",
+                    onRetry = { refreshKey++ },
+                ) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         itemsIndexed(filtered, key = { _, it -> it.offerId }) { index, item ->
                             DerdimOfferCard(
                                 offer = item.toOfferCardData(index),

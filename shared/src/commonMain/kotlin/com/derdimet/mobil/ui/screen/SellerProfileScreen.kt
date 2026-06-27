@@ -16,6 +16,7 @@ fun SellerProfileScreen(
     onOpenFavorites: () -> Unit = {},
     onOpenSecuritySettings: () -> Unit = {},
     onOpenNotificationPreferences: () -> Unit = {},
+    onOpenBusinessVerification: () -> Unit = {},
 ) {
     RoleProfileScreen(
         userRole = UserRole.ANIMAL_SELLER,
@@ -29,5 +30,6 @@ fun SellerProfileScreen(
         onOpenFavorites = onOpenFavorites,
         onOpenSecuritySettings = onOpenSecuritySettings,
         onOpenNotificationPreferences = onOpenNotificationPreferences,
+        onOpenBusinessVerification = onOpenBusinessVerification,
     )
 }

@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,10 +24,12 @@ import com.derdimet.mobil.model.SellerAnimalListingDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimAnimalListingCard
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.toggleFavoriteIdSet
+import kotlinx.coroutines.launch
 
 @Composable
 fun SlaughterhouseFavoritesScreen(
@@ -40,6 +43,7 @@ fun SlaughterhouseFavoritesScreen(
     var favSubmittingId by remember { mutableStateOf<Long?>(null) }
     var favToggleNonce by remember { mutableIntStateOf(0) }
     var favoriteError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     var detailListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     var offerForListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
@@ -147,14 +151,15 @@ fun SlaughterhouseFavoritesScreen(
                 )
             },
             content = {
-                when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    listings.isEmpty() -> Text(
-                        "Henüz favori ilanınız yok. Arama ekranından hayvan ilanlarını favorileyebilirsiniz.",
-                        color = DerdimColors.MutedForeground,
-                    )
-                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DerdimScreenState(
+                    loading = isLoading,
+                    error = error,
+                    empty = listings.isEmpty(),
+                    emptyTitle = "Henüz favori ilanınız yok",
+                    emptyMessage = "Arama ekranından hayvan ilanlarını favorileyebilirsiniz.",
+                    onRetry = { scope.launch { refresh() } },
+                ) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(listings.size, key = { listings[it].id }) { index ->
                             val item = listings[index]
                             DerdimAnimalListingCard(

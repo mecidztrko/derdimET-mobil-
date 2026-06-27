@@ -7,6 +7,7 @@ import com.derdimet.mobil.model.LoginResponse
 import com.derdimet.mobil.model.MeResponse
 import com.derdimet.mobil.model.MessageResponse
 import com.derdimet.mobil.model.PasswordResetRequest
+import com.derdimet.mobil.model.RefreshTokenRequest
 import com.derdimet.mobil.model.UploadedImageResponse
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -28,6 +29,7 @@ class ApiService(
     private val baseUrl: String = "http://10.0.2.2:8081"
 ) {
     @PublishedApi internal var currentAuthToken: String? = null
+    var tokenRefresher: (suspend () -> Boolean)? = null
     @PublishedApi internal val client = HttpClient {
         install(ContentNegotiation) {
             json(Json {
@@ -97,6 +99,37 @@ class ApiService(
         )
     }
 
+    suspend fun refresh(refreshToken: String): ApiResponse<LoginResponse> {
+        val response: HttpResponse = client.post("/api/auth/refresh") {
+            setBody(RefreshTokenRequest(refreshToken))
+        }
+        return if (response.status.isSuccess()) {
+            val result = response.body<LoginResponse>()
+            currentAuthToken = result.token
+            ApiResponse(data = result, success = true)
+        } else {
+            ApiResponse(data = null, success = false, message = errorMessageFrom(response))
+        }
+    }
+
+    suspend fun logout(refreshToken: String): ApiResponse<MessageResponse> {
+        val response: HttpResponse = client.post("/api/auth/logout") {
+            setBody(RefreshTokenRequest(refreshToken))
+        }
+        return if (response.status.isSuccess()) {
+            ApiResponse(data = response.body(), success = true)
+        } else {
+            ApiResponse(data = null, success = false, message = errorMessageFrom(response))
+        }
+    }
+
+    @PublishedApi internal suspend fun refreshAuthIfNeeded(response: HttpResponse, allowRetry: Boolean): Boolean {
+        if (response.status.value == 401 && allowRetry) {
+            return tokenRefresher?.invoke() == true
+        }
+        return false
+    }
+
     suspend fun forgotPassword(email: String): ApiResponse<MessageResponse> {
         return post("/api/auth/password/forgot", EmailOnlyRequest(email.trim()))
     }
@@ -109,7 +142,7 @@ class ApiService(
     }
 
     suspend fun changePassword(currentPassword: String, newPassword: String): ApiResponse<MessageResponse> {
-        return post(
+        return post<MessageResponse>(
             "/api/auth/password/change",
             ChangePasswordRequest(currentPassword, newPassword),
         )
@@ -153,10 +186,11 @@ class ApiService(
         }
     }
 
-    suspend inline fun <reified T> get(endpoint: String): ApiResponse<T> {
+    suspend inline fun <reified T> get(endpoint: String, allowRetry: Boolean = true): ApiResponse<T> {
         return try {
-            val response: HttpResponse = client.get(endpoint) {
-                auth()
+            var response: HttpResponse = client.get(endpoint) { auth() }
+            if (refreshAuthIfNeeded(response, allowRetry)) {
+                response = client.get(endpoint) { auth() }
             }
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)
@@ -203,11 +237,17 @@ class ApiService(
         }
     }
 
-    suspend inline fun <reified T> post(endpoint: String, body: Any): ApiResponse<T> {
+    suspend inline fun <reified T> post(endpoint: String, body: Any, allowRetry: Boolean = true): ApiResponse<T> {
         return try {
-            val response: HttpResponse = client.post(endpoint) {
+            var response: HttpResponse = client.post(endpoint) {
                 auth()
                 setBody(body)
+            }
+            if (refreshAuthIfNeeded(response, allowRetry)) {
+                response = client.post(endpoint) {
+                    auth()
+                    setBody(body)
+                }
             }
             if (response.status.isSuccess()) {
                 ApiResponse(data = response.body(), success = true)

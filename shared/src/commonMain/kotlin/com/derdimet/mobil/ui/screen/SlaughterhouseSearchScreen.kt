@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +48,7 @@ import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.util.toggleFavoriteIdSet
 import com.derdimet.mobil.ui.components.DerdimAnimalListingCard
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FilterChipButton
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
@@ -54,6 +56,8 @@ import com.derdimet.mobil.ui.components.FigmaSecondaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.MarketplaceSearchBar
 import com.derdimet.mobil.ui.theme.DerdimColors
+import com.derdimet.mobil.viewmodel.SlaughterhouseSearchFilters
+import com.derdimet.mobil.viewmodel.SlaughterhouseSearchViewModel
 
 private data class ShFilters(
     val sort: String = "newest",
@@ -70,12 +74,11 @@ private data class ShFilters(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SlaughterhouseSearchScreen(
+    viewModel: SlaughterhouseSearchViewModel,
     marketService: MarketService,
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var listings by remember { mutableStateOf<List<SellerAnimalListingDto>>(emptyList()) }
-    var favoriteListingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val uiState by viewModel.state.collectAsState()
+    val favoriteListingIds by viewModel.favoriteIds.collectAsState()
     var favSubmittingListingId by remember { mutableStateOf<Long?>(null) }
     var favToggleNonce by remember { mutableIntStateOf(0) }
     var favoriteError by remember { mutableStateOf<String?>(null) }
@@ -90,39 +93,31 @@ fun SlaughterhouseSearchScreen(
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var openProfileUserId by remember { mutableStateOf<Long?>(null) }
 
-    fun parseIntOrNull(s: String): Int? = s.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
-    fun parseDoubleOrNull(s: String): Double? = s.trim().takeIf { it.isNotEmpty() }?.replace(',', '.')?.toDoubleOrNull()
+    fun toVmFilters() = SlaughterhouseSearchFilters(
+        sort = filters.sort,
+        category = filters.category,
+        type = filters.type,
+        ageMin = filters.ageMin,
+        ageMax = filters.ageMax,
+        quantityMin = filters.quantityMin,
+        quantityMax = filters.quantityMax,
+        priceMin = filters.priceMin,
+        priceMax = filters.priceMax,
+    )
 
-    suspend fun refresh() {
-        isLoading = true
-        error = null
-        val res = marketService.searchSlaughterhouseAnimalListingsFiltered(
-            category = filters.category?.name,
-            type = filters.type.takeIf { it.isNotBlank() } ?: query.takeIf { it.isNotBlank() },
-            ageMin = parseIntOrNull(filters.ageMin),
-            ageMax = parseIntOrNull(filters.ageMax),
-            quantityMin = parseIntOrNull(filters.quantityMin),
-            quantityMax = parseIntOrNull(filters.quantityMax),
-            priceMin = parseDoubleOrNull(filters.priceMin),
-            priceMax = parseDoubleOrNull(filters.priceMax),
-            sort = filters.sort,
-        )
-        if (res.success) {
-            val all = res.data ?: emptyList()
-            listings =
-                if (query.isBlank()) all
-                else all.filter {
-                    val q = query.trim().lowercase()
-                    it.type.lowercase().contains(q) || (it.sellerName ?: "").lowercase().contains(q)
-                }
-            favoriteListingIds = all.filter { it.isFavoritedByMe == true }.map { it.id }.toSet()
-        } else {
-            error = res.message ?: "İlanlar alınamadı"
-        }
-        isLoading = false
+    LaunchedEffect(filters, query) {
+        viewModel.load(toVmFilters())
     }
 
-    LaunchedEffect(filters, query) { refresh() }
+    val listings = remember(uiState.items, query) {
+        if (query.isBlank()) uiState.items
+        else {
+            val q = query.trim().lowercase()
+            uiState.items.filter {
+                it.type.lowercase().contains(q) || (it.sellerName ?: "").lowercase().contains(q)
+            }
+        }
+    }
 
     LaunchedEffect(favSubmittingListingId, favToggleNonce) {
         val listingId = favSubmittingListingId ?: return@LaunchedEffect
@@ -131,8 +126,7 @@ fun SlaughterhouseSearchScreen(
             val res = marketService.toggleAnimalListingFavorite(listingId)
             if (res.success) {
                 val nowFav = res.data?.isFavoritedByMe == true
-                favoriteListingIds = toggleFavoriteIdSet(favoriteListingIds, listingId, nowFav)
-                listings = listings.map { if (it.id == listingId) it.copy(isFavoritedByMe = nowFav) else it }
+                viewModel.applyFavoriteToggle(listingId, nowFav)
                 detailListing = detailListing?.takeIf { it.id == listingId }?.copy(isFavoritedByMe = nowFav) ?: detailListing
             } else {
                 favoriteError = res.message ?: "Favori işlemi başarısız"
@@ -149,7 +143,7 @@ fun SlaughterhouseSearchScreen(
         if (res.success && res.data != null) {
             selectedConversation = res.data
         } else {
-            error = res.message ?: "Sohbet başlatılamadı"
+            favoriteError = res.message ?: "Sohbet başlatılamadı"
         }
     }
 
@@ -266,11 +260,17 @@ fun SlaughterhouseSearchScreen(
                 Text("${listings.size} ilan bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
             },
             content = {
-                when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    listings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = DerdimColors.MutedForeground)
-                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val offlineHint = if (uiState.isOfflineCache) "Çevrimdışı — son kaydedilen ilanlar" else null
+                DerdimScreenState(
+                    loading = uiState.isLoading,
+                    error = if (!uiState.isLoading && listings.isEmpty()) uiState.error else null,
+                    empty = !uiState.isLoading && uiState.error == null && listings.isEmpty(),
+                    emptyTitle = "İlan bulunamadı",
+                    emptyMessage = "Filtreleri değiştirmeyi deneyin.",
+                    offlineHint = offlineHint,
+                    onRetry = { viewModel.load(toVmFilters()) },
+                ) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(listings.size) { index ->
                             val l = listings[index]
                             DerdimAnimalListingCard(

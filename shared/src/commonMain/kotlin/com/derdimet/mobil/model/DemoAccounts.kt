@@ -8,5 +8,5 @@ object DemoAccounts {
         UserRole.ADMIN -> "admin@derdimet.local"
     }
 
-    const val PASSWORD = "123456"
+    const val PASSWORD = "DerdimET1!"
 }

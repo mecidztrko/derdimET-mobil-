@@ -365,4 +365,8 @@ class MarketService(private val apiService: ApiService) {
     suspend fun createReview(payload: CreateReviewRequest): ApiResponse<ReviewDto> {
         return apiService.post("/api/reviews", payload)
     }
+
+    suspend fun submitBusinessVerification(documentUrl: String): ApiResponse<BusinessVerificationDto> {
+        return apiService.post("/api/me/business-verification", SubmitBusinessVerificationRequest(documentUrl))
+    }
 }

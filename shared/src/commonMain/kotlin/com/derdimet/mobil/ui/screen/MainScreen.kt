@@ -5,21 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Campaign
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,44 +22,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Icon
 import com.derdimet.mobil.model.OfferStatus
 import com.derdimet.mobil.model.UserRole
-import com.derdimet.mobil.repository.AnimalCategoryFilter
 import com.derdimet.mobil.repository.AuthRepository
-import com.derdimet.mobil.repository.PreferencesRepository
+import com.derdimet.mobil.navigation.NavBackStack
+import com.derdimet.mobil.navigation.ProfileRoute
+import com.derdimet.mobil.repository.ListingCacheRepository
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.AppBottomBar
 import com.derdimet.mobil.ui.components.AppNavTab
 import com.derdimet.mobil.ui.components.FigmaStyle
-import com.derdimet.mobil.viewmodel.SellerViewModel
-
-private sealed class ProfileOverlay {
-    data object None : ProfileOverlay()
-    data object MyListings : ProfileOverlay()
-    data object Purchases : ProfileOverlay()
-    data object Notifications : ProfileOverlay()
-    data object EditProfile : ProfileOverlay()
-    data object Favorites : ProfileOverlay()
-    data object ChangePassword : ProfileOverlay()
-    data object NotificationPreferences : ProfileOverlay()
-}
+import com.derdimet.mobil.viewmodel.BuyerSearchViewModel
+import com.derdimet.mobil.viewmodel.MessagesInboxViewModel
+import com.derdimet.mobil.viewmodel.SellerSearchViewModel
+import com.derdimet.mobil.viewmodel.SlaughterhouseSearchViewModel
 
 @Composable
 fun MainScreen(
     userRole: UserRole,
-    preferencesRepository: PreferencesRepository,
     marketService: MarketService,
+    listingCacheRepository: ListingCacheRepository,
     authRepository: AuthRepository,
     onLogout: () -> Unit,
     onSwitchRole: (UserRole) -> Unit = {},
@@ -78,9 +54,23 @@ fun MainScreen(
     var offerBadge by remember { mutableIntStateOf(0) }
     var messageBadge by remember { mutableIntStateOf(0) }
     var inboxRefreshKey by remember { mutableIntStateOf(0) }
-    var profileOverlay by remember { mutableStateOf<ProfileOverlay>(ProfileOverlay.None) }
-    var selectedFilter by remember { mutableStateOf(preferencesRepository.getAnimalCategoryFilter()) }
-    val sellerViewModel = remember { SellerViewModel(marketService) }
+    val profileStack = remember { NavBackStack<ProfileRoute>(ProfileRoute.None) }
+    val buyerSearchViewModel = remember(marketService, listingCacheRepository) {
+        BuyerSearchViewModel(marketService, listingCacheRepository)
+    }
+    val slaughterhouseSearchViewModel = remember(marketService, listingCacheRepository) {
+        SlaughterhouseSearchViewModel(marketService, listingCacheRepository)
+    }
+    val sellerSearchViewModel = remember(marketService, listingCacheRepository) {
+        SellerSearchViewModel(marketService, listingCacheRepository)
+    }
+    val messagesViewModel = remember(marketService, listingCacheRepository) {
+        MessagesInboxViewModel(marketService, listingCacheRepository)
+    }
+
+    LaunchedEffect(inboxRefreshKey) {
+        if (inboxRefreshKey > 0) messagesViewModel.load()
+    }
 
     LaunchedEffect(userRole, selectedTab) {
         val notifRes = marketService.fetchNotificationSummary()
@@ -128,9 +118,16 @@ fun MainScreen(
                 AdminNotSupportedScreen(onLogout = onLogout)
             } else {
                 when (selectedTab) {
-                    AppNavTab.Search -> SearchScreenByRole(userRole, marketService)
+                    AppNavTab.Search -> SearchScreenByRole(
+                        userRole,
+                        marketService,
+                        buyerSearchViewModel,
+                        slaughterhouseSearchViewModel,
+                        sellerSearchViewModel,
+                    )
                     AppNavTab.Offers -> OffersScreenByRole(userRole, marketService)
                     AppNavTab.Messages -> MessagesInboxScreen(
+                        viewModel = messagesViewModel,
                         marketService = marketService,
                         refreshKey = inboxRefreshKey,
                     )
@@ -140,26 +137,33 @@ fun MainScreen(
                             marketService = marketService,
                             onLogout = onLogout,
                             onSwitchRole = onSwitchRole,
-                            onOpenMyListings = { profileOverlay = ProfileOverlay.MyListings },
-                            onOpenPurchases = { profileOverlay = ProfileOverlay.Purchases },
-                            onOpenNotifications = { profileOverlay = ProfileOverlay.Notifications },
-                            onOpenEditProfile = { profileOverlay = ProfileOverlay.EditProfile },
-                            onOpenFavorites = { profileOverlay = ProfileOverlay.Favorites },
-                            onOpenSecuritySettings = { profileOverlay = ProfileOverlay.ChangePassword },
-                            onOpenNotificationPreferences = { profileOverlay = ProfileOverlay.NotificationPreferences },
+                            onOpenMyListings = { profileStack.navigate(ProfileRoute.MyListings) },
+                            onOpenPurchases = { profileStack.navigate(ProfileRoute.Purchases) },
+                            onOpenNotifications = { profileStack.navigate(ProfileRoute.Notifications) },
+                            onOpenEditProfile = { profileStack.navigate(ProfileRoute.EditProfile) },
+                            onOpenFavorites = { profileStack.navigate(ProfileRoute.Favorites) },
+                            onOpenSecuritySettings = { profileStack.navigate(ProfileRoute.ChangePassword) },
+                            onOpenNotificationPreferences = { profileStack.navigate(ProfileRoute.NotificationPreferences) },
+                            onOpenBusinessVerification = { profileStack.navigate(ProfileRoute.BusinessVerification) },
                         )
-                        when (profileOverlay) {
-                            ProfileOverlay.None -> Unit
-                            ProfileOverlay.MyListings -> MyListingsScreen(userRole, marketService) { profileOverlay = ProfileOverlay.None }
-                            ProfileOverlay.Purchases -> MyPurchasesScreen(userRole, marketService) { profileOverlay = ProfileOverlay.None }
-                            ProfileOverlay.Notifications -> NotificationsScreen(marketService) { profileOverlay = ProfileOverlay.None }
-                            ProfileOverlay.EditProfile -> EditProfileScreen(marketService, authRepository, onBack = { profileOverlay = ProfileOverlay.None }, onSaved = { profileOverlay = ProfileOverlay.None })
-                            ProfileOverlay.ChangePassword -> ChangePasswordScreen(authRepository, onBack = { profileOverlay = ProfileOverlay.None })
-                            ProfileOverlay.NotificationPreferences -> NotificationPreferencesScreen(marketService, onBack = { profileOverlay = ProfileOverlay.None })
-                            ProfileOverlay.Favorites -> when (userRole) {
-                                UserRole.ANIMAL_SELLER -> SellerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
-                                UserRole.SLAUGHTERHOUSE -> SlaughterhouseFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
-                                else -> BuyerFavoritesScreen(marketService) { profileOverlay = ProfileOverlay.None }
+                        when (profileStack.current) {
+                            ProfileRoute.None -> Unit
+                            ProfileRoute.MyListings -> MyListingsScreen(userRole, marketService) { profileStack.pop() }
+                            ProfileRoute.Purchases -> MyPurchasesScreen(userRole, marketService) { profileStack.pop() }
+                            ProfileRoute.Notifications -> NotificationsScreen(marketService) { profileStack.pop() }
+                            ProfileRoute.EditProfile -> EditProfileScreen(
+                                marketService,
+                                authRepository,
+                                onBack = { profileStack.pop() },
+                                onSaved = { profileStack.pop() },
+                            )
+                            ProfileRoute.ChangePassword -> ChangePasswordScreen(authRepository, onBack = { profileStack.pop() })
+                            ProfileRoute.NotificationPreferences -> NotificationPreferencesScreen(marketService, onBack = { profileStack.pop() })
+                            ProfileRoute.BusinessVerification -> BusinessVerificationScreen(marketService, onBack = { profileStack.pop() })
+                            ProfileRoute.Favorites -> when (userRole) {
+                                UserRole.ANIMAL_SELLER -> SellerFavoritesScreen(marketService) { profileStack.pop() }
+                                UserRole.SLAUGHTERHOUSE -> SlaughterhouseFavoritesScreen(marketService) { profileStack.pop() }
+                                else -> BuyerFavoritesScreen(marketService) { profileStack.pop() }
                             }
                         }
                     }
@@ -188,11 +192,20 @@ private fun navTabsForRole(role: UserRole): List<AppNavTab> = when (role) {
 }
 
 @Composable
-private fun SearchScreenByRole(role: UserRole, marketService: MarketService) {
+private fun SearchScreenByRole(
+    role: UserRole,
+    marketService: MarketService,
+    buyerSearchViewModel: BuyerSearchViewModel,
+    slaughterhouseSearchViewModel: SlaughterhouseSearchViewModel,
+    sellerSearchViewModel: SellerSearchViewModel,
+) {
     when (role) {
-        UserRole.MEAT_BUYER -> BuyerSearchScreen(marketService = marketService)
-        UserRole.ANIMAL_SELLER -> SellerSearchScreen(marketService = marketService)
-        UserRole.SLAUGHTERHOUSE -> SlaughterhouseSearchScreen(marketService = marketService)
+        UserRole.MEAT_BUYER -> BuyerSearchScreen(viewModel = buyerSearchViewModel, marketService = marketService)
+        UserRole.ANIMAL_SELLER -> SellerSearchScreen(viewModel = sellerSearchViewModel, marketService = marketService)
+        UserRole.SLAUGHTERHOUSE -> SlaughterhouseSearchScreen(
+            viewModel = slaughterhouseSearchViewModel,
+            marketService = marketService,
+        )
         UserRole.ADMIN -> Unit
     }
 }
@@ -220,11 +233,24 @@ private fun ProfileScreenByRole(
     onOpenFavorites: () -> Unit = {},
     onOpenSecuritySettings: () -> Unit = {},
     onOpenNotificationPreferences: () -> Unit = {},
+    onOpenBusinessVerification: () -> Unit = {},
 ) {
     when (userRole) {
-        UserRole.MEAT_BUYER -> BuyerProfileScreen(marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
-        UserRole.ANIMAL_SELLER -> SellerProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
-        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications, onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences)
+        UserRole.MEAT_BUYER -> BuyerProfileScreen(
+            marketService, onLogout, onSwitchRole, onOpenPurchases, onOpenNotifications,
+            onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences,
+            onOpenBusinessVerification,
+        )
+        UserRole.ANIMAL_SELLER -> SellerProfileScreen(
+            marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications,
+            onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences,
+            onOpenBusinessVerification,
+        )
+        UserRole.SLAUGHTERHOUSE -> SlaughterhouseProfileScreen(
+            marketService, onLogout, onSwitchRole, onOpenMyListings, onOpenPurchases, onOpenNotifications,
+            onOpenEditProfile, onOpenFavorites, onOpenSecuritySettings, onOpenNotificationPreferences,
+            onOpenBusinessVerification,
+        )
         UserRole.ADMIN -> Unit
     }
 }
@@ -235,61 +261,6 @@ private fun CreateScreenByRole(role: UserRole, marketService: MarketService) {
         UserRole.ANIMAL_SELLER -> SellerCreateListingScreen(marketService = marketService)
         UserRole.SLAUGHTERHOUSE -> SlaughterhouseCreateHubScreen(marketService = marketService)
         else -> Unit
-    }
-}
-
-@Composable
-fun HomeScreenByRole(
-    role: UserRole,
-    sellerViewModel: SellerViewModel,
-    selectedFilter: AnimalCategoryFilter,
-) {
-    when (role) {
-        UserRole.ADMIN -> Unit
-        UserRole.ANIMAL_SELLER -> SellerHomeScreen(sellerViewModel, selectedFilter)
-        UserRole.MEAT_BUYER -> BuyerHomeScreen()
-        UserRole.SLAUGHTERHOUSE -> Unit
-    }
-}
-
-@Composable
-fun ExploreScreen(userRole: UserRole) {
-    val roleLabel = when (userRole) {
-        UserRole.ADMIN -> "Yönetici"
-        UserRole.ANIMAL_SELLER -> "Satıcı"
-        UserRole.MEAT_BUYER -> "Et Alıcı"
-        UserRole.SLAUGHTERHOUSE -> "Kesimhane"
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-    ) {
-        Text(text = "Keşfet", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(
-            text = "$roleLabel hesabı için öne çıkan modüller",
-            color = Color.Gray,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        ExploreCard(
-            title = "Hayvan Alış Talepleri",
-            description = "Yönetici taleplerini ve ilan durumlarını hızlıca takip edin.",
-            icon = Icons.Default.Inventory2,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        ExploreCard(
-            title = "Teklif ve Pazar Akışı",
-            description = "Satıcı teklifleri, fiyat karşılaştırması ve işlem durumu.",
-            icon = Icons.Default.Campaign,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        ExploreCard(
-            title = "Profil ve Filtreler",
-            description = "Kategori filtresi ve hesap güvenliği ayarları.",
-            icon = Icons.Default.Person,
-        )
     }
 }
 
@@ -312,37 +283,5 @@ private fun AdminNotSupportedScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
         )
         Button(onClick = onLogout) { Text("Çıkış Yap") }
-    }
-}
-
-@Composable
-private fun ExploreCard(title: String, description: String, icon: ImageVector) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(8.dp),
-                )
-            }
-            Column {
-                Text(text = title, fontWeight = FontWeight.SemiBold)
-                Text(text = description, color = Color.Gray, fontSize = 13.sp)
-            }
-        }
     }
 }

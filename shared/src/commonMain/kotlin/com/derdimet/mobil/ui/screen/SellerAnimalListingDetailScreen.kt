@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import com.derdimet.mobil.platform.rememberShareTextAction
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DetailGridCell
 import com.derdimet.mobil.ui.components.DerdimUserReviewsSection
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
@@ -68,10 +70,11 @@ fun SellerAnimalListingDetailScreen(
     var error by remember(listingId) { mutableStateOf<String?>(null) }
     var listing by remember(listingId) { mutableStateOf(initialListing) }
     var reviewSummaryText by remember(listingId) { mutableStateOf<String?>(null) }
+    var refreshKey by remember(listingId) { mutableIntStateOf(0) }
     val shareText = rememberShareTextAction()
 
-    LaunchedEffect(listingId) {
-        if (initialListing == null) {
+    LaunchedEffect(listingId, refreshKey) {
+        if (initialListing == null || refreshKey > 0) {
             loading = true
             error = null
         }
@@ -112,10 +115,15 @@ fun SellerAnimalListingDetailScreen(
         favoriteError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
-        when {
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Yükleniyor...", color = DerdimColors.MutedForeground) }
-            error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error ?: "Hata", color = MaterialTheme.colorScheme.error) }
-            l != null -> Box(Modifier.fillMaxSize()) {
+        DerdimScreenState(
+            modifier = Modifier.fillMaxSize(),
+            loading = loading,
+            error = if (listing == null) error else null,
+            empty = false,
+            onRetry = { refreshKey++ },
+        ) {
+            val l = listing ?: return@DerdimScreenState
+            Box(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
                     ImageCarousel(imageUrls = l.imageUrls)
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

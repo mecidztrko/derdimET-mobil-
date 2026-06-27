@@ -17,7 +17,10 @@ data class MeResponse(
     val contactSecondaryName: String? = null,
     val contactSecondaryPhone: String? = null,
     val profileImageUrl: String? = null,
-    val businessVerified: Boolean
+    val emailVerified: Boolean = false,
+    val businessVerified: Boolean,
+    val businessVerificationStatus: String? = null,
+    val businessVerificationNote: String? = null,
 )
 
 fun MeResponse.toAuthUser(): AuthUser? {

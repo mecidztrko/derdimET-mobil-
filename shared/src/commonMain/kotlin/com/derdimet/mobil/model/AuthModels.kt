@@ -29,7 +29,9 @@ data class AuthUser(
 @Serializable
 data class LoginResponse(
     val token: String,
-    val tokenType: String
+    val tokenType: String = "Bearer",
+    val refreshToken: String? = null,
+    val expiresInSeconds: Long? = null,
 )
 
 @Serializable
@@ -40,7 +42,26 @@ data class ApiResponse<T>(
 )
 
 @Serializable
-data class MessageResponse(val message: String)
+data class RefreshTokenRequest(val refreshToken: String)
+
+@Serializable
+data class BusinessVerificationDto(
+    val userId: Long,
+    val name: String? = null,
+    val email: String? = null,
+    val role: String? = null,
+    val companyName: String? = null,
+    val taxNumber: String? = null,
+    val documentUrl: String? = null,
+    val status: String? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class SubmitBusinessVerificationRequest(val documentUrl: String)
+
+@Serializable
+data class MessageResponse(val message: String? = null)
 
 @Serializable
 data class EmailOnlyRequest(val email: String)

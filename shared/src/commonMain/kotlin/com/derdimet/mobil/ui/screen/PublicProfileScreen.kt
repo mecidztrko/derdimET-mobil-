@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import com.derdimet.mobil.model.PublicUserListingsDto
 import com.derdimet.mobil.model.PublicUserProfileDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFormCard
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
@@ -57,8 +59,9 @@ fun PublicProfileScreen(
     var error by remember(userId) { mutableStateOf<String?>(null) }
     var profile by remember(userId) { mutableStateOf<PublicUserProfileDto?>(null) }
     var listings by remember(userId) { mutableStateOf<PublicUserListingsDto?>(null) }
+    var refreshKey by remember(userId) { mutableIntStateOf(0) }
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(userId, refreshKey) {
         loading = true
         error = null
         val res = marketService.fetchPublicProfile(userId)
@@ -72,14 +75,18 @@ fun PublicProfileScreen(
         loading = false
     }
 
-    val p = profile
-    val openListings = listings
     Column(Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         DerdimTopBar(title = "Profil", showBack = true, onBack = onBack)
-        when {
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Yükleniyor...", color = DerdimColors.MutedForeground) }
-            error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(error ?: "Hata", color = MaterialTheme.colorScheme.error) }
-            p != null -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DerdimScreenState(
+            modifier = Modifier.fillMaxSize(),
+            loading = loading,
+            error = if (profile == null) error else null,
+            empty = false,
+            onRetry = { refreshKey++ },
+        ) {
+            val p = profile ?: return@DerdimScreenState
+            val openListings = listings
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).border(1.dp, DerdimColors.Border.copy(0.5f), RoundedCornerShape(16.dp))) {
                     Box(Modifier.fillMaxWidth().height(72.dp).background(Brush.horizontalGradient(listOf(DerdimColors.Primary, Color(0xFF3B82F6)))))
                     Column(Modifier.padding(16.dp)) {

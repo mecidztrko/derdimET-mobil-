@@ -8,6 +8,7 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.derdimet.mobil.repository.AuthRepository
+import com.derdimet.mobil.repository.ListingCacheRepository
 import com.derdimet.mobil.repository.PreferencesRepository
 import com.derdimet.mobil.service.ApiService
 import com.derdimet.mobil.service.MarketService
@@ -29,6 +30,9 @@ fun DerdimAndroidApp(apiBaseUrl: String) {
     val preferencesRepository = remember(settingsStorage) {
         PreferencesRepository(settingsStorage)
     }
+    val listingCacheRepository = remember(settingsStorage) {
+        ListingCacheRepository(settingsStorage)
+    }
     val marketService = remember(apiService) { MarketService(apiService) }
 
     setSingletonImageLoaderFactory { context ->
@@ -42,6 +46,7 @@ fun DerdimAndroidApp(apiBaseUrl: String) {
             apiService = apiService,
             authRepository = authRepository,
             preferencesRepository = preferencesRepository,
+            listingCacheRepository = listingCacheRepository,
             marketService = marketService,
             onLogoutCleanup = { authStorage.clearToken() }
         )

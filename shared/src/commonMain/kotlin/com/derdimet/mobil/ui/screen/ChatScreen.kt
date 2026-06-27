@@ -53,6 +53,7 @@ import com.derdimet.mobil.model.MessageDto
 import com.derdimet.mobil.model.OfferStatus
 import com.derdimet.mobil.platform.rememberImagePickerLauncher
 import com.derdimet.mobil.service.MarketService
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.InitialsAvatar
 import com.derdimet.mobil.ui.theme.DerdimColors
@@ -181,10 +182,15 @@ fun ChatScreen(
         }
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground, modifier = Modifier.padding(16.dp))
-                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                else -> LazyColumn(
+            DerdimScreenState(
+                loading = isLoading,
+                error = error,
+                empty = messages.isEmpty() && offerAmount.isNullOrBlank(),
+                emptyTitle = "Henüz mesaj yok",
+                emptyMessage = "İlk mesajınızı göndererek sohbeti başlatın.",
+                onRetry = { scope.launch { refresh() } },
+            ) {
+                LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {

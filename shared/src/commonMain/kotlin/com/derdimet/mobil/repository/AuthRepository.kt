@@ -9,11 +9,18 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.utils.io.errors.IOException
+import kotlinx.datetime.Clock
 
 interface AuthStorage {
     fun getToken(): String?
     fun setToken(token: String)
     fun clearToken()
+    fun getRefreshToken(): String?
+    fun setRefreshToken(token: String)
+    fun clearRefreshToken()
+    fun getTokenExpiresAtMs(): Long?
+    fun setTokenExpiresAtMs(expiresAtMs: Long)
+    fun clearTokenExpiresAtMs()
 }
 
 class AuthRepository(
@@ -21,6 +28,8 @@ class AuthRepository(
     private val authStorage: AuthStorage
 ) {
     private val KEY = "derdimet_auth_token"
+    private val REFRESH_KEY = "derdimet_refresh_token"
+    private val EXPIRES_KEY = "derdimet_token_expires_at"
     private var lastLoginError: String? = null
 
     fun consumeLastLoginError(): String? {
@@ -36,6 +45,10 @@ class AuthRepository(
             val token = response.data?.token
             if (response.success && !token.isNullOrBlank()) {
                 authStorage.setToken(token)
+                response.data?.refreshToken?.let { authStorage.setRefreshToken(it) }
+                response.data?.expiresInSeconds?.let { seconds ->
+                    authStorage.setTokenExpiresAtMs(Clock.System.now().toEpochMilliseconds() + seconds * 1000)
+                }
                 apiService.setAuthToken(token)
                 true
             } else {
@@ -64,14 +77,40 @@ class AuthRepository(
         }
     }
 
-    fun logout() {
+    suspend fun logout() {
+        val refresh = authStorage.getRefreshToken()
+        if (!refresh.isNullOrBlank()) {
+            runCatching { apiService.logout(refresh) }
+        }
         authStorage.clearToken()
+        authStorage.clearRefreshToken()
+        authStorage.clearTokenExpiresAtMs()
         apiService.setAuthToken(null)
+    }
+
+    suspend fun refreshAccessToken(): Boolean {
+        val refresh = authStorage.getRefreshToken() ?: return false
+        return try {
+            val response = apiService.refresh(refresh)
+            val data = response.data ?: return false
+            val token = data.token
+            if (!response.success || token.isBlank()) return false
+            authStorage.setToken(token)
+            data.refreshToken?.let { authStorage.setRefreshToken(it) }
+            data.expiresInSeconds?.let { seconds ->
+                authStorage.setTokenExpiresAtMs(Clock.System.now().toEpochMilliseconds() + seconds * 1000)
+            }
+            apiService.setAuthToken(token)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun checkAuth() {
         val token = authStorage.getToken()
         apiService.setAuthToken(token)
+        apiService.tokenRefresher = { refreshAccessToken() }
     }
 
     suspend fun fetchCurrentUser(): AuthUser? {

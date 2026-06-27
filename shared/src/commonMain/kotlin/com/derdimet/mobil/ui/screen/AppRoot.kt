@@ -1,6 +1,5 @@
 package com.derdimet.mobil.ui.screen
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -9,15 +8,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.derdimet.mobil.model.DemoAccounts
 import com.derdimet.mobil.model.UserRole
+import com.derdimet.mobil.navigation.AuthRoute
+import com.derdimet.mobil.navigation.NavBackStack
 import com.derdimet.mobil.repository.AuthRepository
+import com.derdimet.mobil.repository.ListingCacheRepository
 import com.derdimet.mobil.repository.PreferencesRepository
 import com.derdimet.mobil.service.ApiService
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.viewmodel.LoginViewModel
 import com.derdimet.mobil.viewmodel.RegisterViewModel
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-private enum class AppScreen { SPLASH, LOGIN, REGISTER, FORGOT_PASSWORD, MAIN }
+private enum class RootScreen { SPLASH, AUTH, MAIN }
 private const val MIN_SPLASH_MS = 1200L
 
 @Composable
@@ -25,40 +29,45 @@ fun AppRoot(
     apiService: ApiService,
     authRepository: AuthRepository,
     preferencesRepository: PreferencesRepository,
+    listingCacheRepository: ListingCacheRepository,
     marketService: MarketService,
-    onLogoutCleanup: () -> Unit
+    onLogoutCleanup: () -> Unit,
 ) {
     val registerViewModel = remember { RegisterViewModel(authRepository) }
     val loginViewModel = remember {
-        LoginViewModel(
-            authRepository = authRepository,
-            preferencesRepository = preferencesRepository
-        )
+        LoginViewModel(authRepository = authRepository, preferencesRepository = preferencesRepository)
     }
+    val authStack = remember { NavBackStack<AuthRoute>(AuthRoute.Login) }
+    val scope = rememberCoroutineScope()
 
-    var currentScreen by remember { mutableStateOf(AppScreen.SPLASH) }
+    var rootScreen by remember { mutableStateOf(RootScreen.SPLASH) }
     var loggedInRole by remember { mutableStateOf<UserRole?>(null) }
     var pendingRoleSwitch by remember { mutableStateOf<UserRole?>(null) }
 
     LaunchedEffect(pendingRoleSwitch) {
         val role = pendingRoleSwitch ?: return@LaunchedEffect
         pendingRoleSwitch = null
-        onLogoutCleanup()
-        apiService.setAuthToken(null)
-        val success = authRepository.login(DemoAccounts.email(role), DemoAccounts.PASSWORD)
-        if (success) {
-            val user = authRepository.fetchCurrentUser()
-            if (user != null && user.role != UserRole.ADMIN) {
-                loggedInRole = user.role
-                currentScreen = AppScreen.MAIN
+        scope.launch {
+            authRepository.logout()
+            onLogoutCleanup()
+            apiService.setAuthToken(null)
+            val success = authRepository.login(DemoAccounts.email(role), DemoAccounts.PASSWORD)
+            if (success) {
+                val user = authRepository.fetchCurrentUser()
+                if (user != null && user.role != UserRole.ADMIN) {
+                    loggedInRole = user.role
+                    rootScreen = RootScreen.MAIN
+                } else {
+                    authRepository.logout()
+                    loggedInRole = null
+                    authStack.reset(AuthRoute.Login)
+                    rootScreen = RootScreen.AUTH
+                }
             } else {
-                authRepository.logout()
                 loggedInRole = null
-                currentScreen = AppScreen.LOGIN
+                authStack.reset(AuthRoute.Login)
+                rootScreen = RootScreen.AUTH
             }
-        } else {
-            loggedInRole = null
-            currentScreen = AppScreen.LOGIN
         }
     }
 
@@ -66,59 +75,66 @@ fun AppRoot(
         authRepository.checkAuth()
         delay(MIN_SPLASH_MS)
         val user = authRepository.fetchCurrentUser()
-        if (user != null) {
+        if (user != null && user.role != UserRole.ADMIN) {
             loggedInRole = user.role
-            currentScreen = AppScreen.MAIN
+            rootScreen = RootScreen.MAIN
         } else {
-            currentScreen = AppScreen.LOGIN
+            authStack.reset(AuthRoute.Login)
+            rootScreen = RootScreen.AUTH
         }
     }
 
-    when (currentScreen) {
-        AppScreen.SPLASH -> {
-            Text("Yükleniyor...")
-        }
-        AppScreen.LOGIN -> {
-            LoginScreen(
-                viewModel = loginViewModel,
-                onNavigateToRegister = { currentScreen = AppScreen.REGISTER },
-                onNavigateToForgotPassword = { currentScreen = AppScreen.FORGOT_PASSWORD },
-                onLoginSuccess = { role ->
-                    loggedInRole = role
-                    currentScreen = AppScreen.MAIN
+    when (rootScreen) {
+        RootScreen.SPLASH -> SplashScreen()
+        RootScreen.AUTH -> {
+            when (authStack.current) {
+                AuthRoute.Login -> {
+                    LoginScreen(
+                        viewModel = loginViewModel,
+                        onNavigateToRegister = { authStack.navigate(AuthRoute.Register) },
+                        onNavigateToForgotPassword = { authStack.navigate(AuthRoute.ForgotPassword) },
+                        onLoginSuccess = { role ->
+                            loggedInRole = role
+                            rootScreen = RootScreen.MAIN
+                        },
+                    )
                 }
-            )
-        }
-        AppScreen.FORGOT_PASSWORD -> {
-            ForgotPasswordScreen(
-                authRepository = authRepository,
-                initialEmail = "",
-                onBack = { currentScreen = AppScreen.LOGIN },
-                onResetSuccess = { currentScreen = AppScreen.LOGIN },
-            )
-        }
-        AppScreen.REGISTER -> {
-            RegisterScreen(
-                viewModel = registerViewModel,
-                onNavigateBack = { currentScreen = AppScreen.LOGIN },
-                onRegisterSuccess = { role ->
-                    loggedInRole = role
-                    currentScreen = AppScreen.MAIN
+                AuthRoute.ForgotPassword -> {
+                    ForgotPasswordScreen(
+                        authRepository = authRepository,
+                        initialEmail = "",
+                        onBack = { authStack.pop() },
+                        onResetSuccess = { authStack.reset(AuthRoute.Login) },
+                    )
                 }
-            )
+                AuthRoute.Register -> {
+                    RegisterScreen(
+                        viewModel = registerViewModel,
+                        onNavigateBack = { authStack.pop() },
+                        onRegisterSuccess = { role ->
+                            loggedInRole = role
+                            rootScreen = RootScreen.MAIN
+                        },
+                    )
+                }
+            }
         }
-        AppScreen.MAIN -> {
+        RootScreen.MAIN -> {
             if (loggedInRole != null) {
                 MainScreen(
                     userRole = loggedInRole!!,
-                    preferencesRepository = preferencesRepository,
                     marketService = marketService,
+                    listingCacheRepository = listingCacheRepository,
                     authRepository = authRepository,
                     onLogout = {
-                        onLogoutCleanup()
-                        apiService.setAuthToken(null)
-                        loggedInRole = null
-                        currentScreen = AppScreen.LOGIN
+                        scope.launch {
+                            authRepository.logout()
+                            onLogoutCleanup()
+                            apiService.setAuthToken(null)
+                            loggedInRole = null
+                            authStack.reset(AuthRoute.Login)
+                            rootScreen = RootScreen.AUTH
+                        }
                     },
                     onSwitchRole = { pendingRoleSwitch = it },
                 )

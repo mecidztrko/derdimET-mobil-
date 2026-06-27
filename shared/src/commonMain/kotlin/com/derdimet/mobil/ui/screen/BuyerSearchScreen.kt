@@ -1,37 +1,27 @@
 package com.derdimet.mobil.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.ConversationItemDto
@@ -40,6 +30,7 @@ import com.derdimet.mobil.model.MeatSaleRequestDto
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimListingCard
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.DefaultSearchFilters
 import com.derdimet.mobil.ui.components.FigmaStyle
@@ -51,17 +42,15 @@ import com.derdimet.mobil.ui.components.SearchFilters
 import com.derdimet.mobil.ui.components.SortOptionSheet
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.filterMeatListings
-import com.derdimet.mobil.util.toggleFavoriteIdSet
+import com.derdimet.mobil.viewmodel.BuyerSearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuyerSearchScreen(
+    viewModel: BuyerSearchViewModel,
     marketService: MarketService,
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var listings by remember { mutableStateOf<List<MeatSaleRequestDto>>(emptyList()) }
-    var favoriteListingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val uiState by viewModel.uiState.collectAsState()
     var favSubmittingId by remember { mutableStateOf<Long?>(null) }
     var favToggleNonce by remember { mutableIntStateOf(0) }
     var favoriteError by remember { mutableStateOf<String?>(null) }
@@ -78,24 +67,6 @@ fun BuyerSearchScreen(
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var openProfileUserId by remember { mutableStateOf<Long?>(null) }
 
-    suspend fun refresh() {
-        isLoading = true
-        error = null
-        val res = marketService.fetchOpenMeatSaleRequests()
-        if (res.success) {
-            val data = res.data ?: emptyList()
-            listings = data
-            favoriteListingIds = data.filter { it.isFavoritedByMe == true }.map { it.id }.toSet()
-        } else {
-            error = res.message ?: "Liste alınamadı"
-        }
-        isLoading = false
-    }
-
-    LaunchedEffect(Unit) {
-        refresh()
-    }
-
     LaunchedEffect(favSubmittingId, favToggleNonce) {
         val listingId = favSubmittingId ?: return@LaunchedEffect
         favoriteError = null
@@ -103,8 +74,7 @@ fun BuyerSearchScreen(
             val res = marketService.toggleMeatListingFavorite(listingId)
             if (res.success) {
                 val nowFav = res.data?.isFavoritedByMe == true
-                favoriteListingIds = toggleFavoriteIdSet(favoriteListingIds, listingId, nowFav)
-                listings = listings.map { if (it.id == listingId) it.copy(isFavoritedByMe = nowFav) else it }
+                viewModel.applyFavoriteToggle(listingId, nowFav)
                 detailListing = detailListing?.takeIf { it.id == listingId }?.copy(isFavoritedByMe = nowFav) ?: detailListing
             } else {
                 favoriteError = res.message ?: "Favori işlemi başarısız"
@@ -121,7 +91,7 @@ fun BuyerSearchScreen(
             if (res.success && res.data != null) {
                 selectedConversation = res.data
             } else {
-                error = res.message ?: "Sohbet başlatılamadı"
+                favoriteError = res.message ?: "Sohbet başlatılamadı"
             }
         } finally {
             if (chatTargetUserId == otherId) chatTargetUserId = null
@@ -145,11 +115,7 @@ fun BuyerSearchScreen(
             submit = { price, qty, note ->
                 val res = marketService.createBuyerMeatOffer(
                     saleRequestId = offerListing.id,
-                    payload = CreateMeatOfferPayload(
-                        pricePerKg = price,
-                        quantity = qty,
-                        note = note,
-                    ),
+                    payload = CreateMeatOfferPayload(pricePerKg = price, quantity = qty, note = note),
                 )
                 Pair(res.success, res.message)
             },
@@ -162,7 +128,7 @@ fun BuyerSearchScreen(
         MeatSaleRequestDetailScreen(
             saleRequestId = detailItem.id,
             initialListing = detailItem,
-            isFavorited = favoriteListingIds.contains(detailItem.id),
+            isFavorited = uiState.favoriteListingIds.contains(detailItem.id),
             favoriteError = favoriteError,
             onFavoriteToggle = {
                 favSubmittingId = detailItem.id
@@ -176,22 +142,22 @@ fun BuyerSearchScreen(
                 chatTargetUserId = sid
                 chatLaunchNonce++
             },
-            onOpenSlaughterhouseProfile = { sid -> openProfileUserId = sid },
+            onOpenSlaughterhouseProfile = { openProfileUserId = it },
         )
-        val openId = openProfileUserId
-        if (openId != null) {
-            PublicProfileScreen(
-                userId = openId,
-                marketService = marketService,
-                onBack = { openProfileUserId = null },
-                onMessage = { id ->
-                    openProfileUserId = null
-                    detailListing = null
-                    chatTargetUserId = id
-                    chatLaunchNonce++
-                },
-            )
-        }
+        return
+    }
+
+    openProfileUserId?.let { userId ->
+        PublicProfileScreen(
+            userId = userId,
+            marketService = marketService,
+            onBack = { openProfileUserId = null },
+            onMessage = { sid ->
+                openProfileUserId = null
+                chatTargetUserId = sid
+                chatLaunchNonce++
+            },
+        )
         return
     }
 
@@ -206,8 +172,8 @@ fun BuyerSearchScreen(
         return
     }
 
-    val filteredListings = remember(listings, query, filters) {
-        filterMeatListings(listings, query, filters)
+    val filteredListings = remember(uiState.listings, query, filters) {
+        filterMeatListings(uiState.listings, query, filters)
     }
 
     val activeFilterCount = remember(filters) {
@@ -220,6 +186,8 @@ fun BuyerSearchScreen(
         ).count { it }
     }
 
+    val offlineHint = if (uiState.isOfflineCache) "Çevrimdışı — son kaydedilen ilanlar gösteriliyor" else null
+
     Column(modifier = Modifier.fillMaxSize().background(FigmaStyle.ScreenBg)) {
         favoriteError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
@@ -227,7 +195,13 @@ fun BuyerSearchScreen(
         DerdimTopBar(showLogo = true, subtitle = "Et İlanları")
         DerdimListScreenBody(
             header = {
-                MarketplaceSearchBar(value = query, onValueChange = { query = it }, placeholder = "Et türü, şehir veya satıcı ara...", onFilterClick = { filterOpen = true }, activeFilterCount = activeFilterCount)
+                MarketplaceSearchBar(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Et türü, şehir veya satıcı ara...",
+                    onFilterClick = { filterOpen = true },
+                    activeFilterCount = activeFilterCount,
+                )
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MeatTypeChips.forEach { chip ->
                         FilterChipButton(
@@ -241,25 +215,36 @@ fun BuyerSearchScreen(
                 Text("${filteredListings.size} ilan bulundu", fontSize = 12.sp, color = DerdimColors.MutedForeground)
             },
             content = {
-                when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    filteredListings.isEmpty() -> Text("Uygun ilan bulunamadı.", color = DerdimColors.MutedForeground)
-                    else -> LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DerdimScreenState(
+                    loading = uiState.isLoading,
+                    error = if (!uiState.isLoading && uiState.listings.isEmpty()) uiState.error else null,
+                    empty = !uiState.isLoading && uiState.error == null && filteredListings.isEmpty(),
+                    emptyTitle = "İlan bulunamadı",
+                    emptyMessage = "Filtreleri değiştirmeyi veya daha sonra tekrar denemeyi deneyin.",
+                    offlineHint = offlineHint,
+                    onRetry = { viewModel.load() },
+                ) {
+                    if (uiState.error != null && uiState.listings.isNotEmpty()) {
+                        Text(
+                            uiState.error ?: "",
+                            color = DerdimColors.Amber600,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(filteredListings.size) { index ->
                             val item = filteredListings[index]
                             DerdimListingCard(
                                 item = item,
                                 index = index,
-                                isFavorited = favoriteListingIds.contains(item.id),
+                                isFavorited = uiState.favoriteListingIds.contains(item.id),
                                 onFavoriteClick = {
                                     favSubmittingId = item.id
                                     favToggleNonce++
                                 },
                                 onClick = {
-                                    detailListing = item.copy(
-                                        isFavoritedByMe = favoriteListingIds.contains(item.id),
-                                    )
+                                    detailListing = item.copy(isFavoritedByMe = uiState.favoriteListingIds.contains(item.id))
                                 },
                                 onOfferClick = { offerForListing = item },
                             )
@@ -274,7 +259,7 @@ fun BuyerSearchScreen(
         ModalBottomSheet(onDismissRequest = { filterOpen = false }) {
             SearchFilterSheet(
                 filters = filters,
-                countForFilters = { preview -> filterMeatListings(listings, query, preview).size },
+                countForFilters = { preview -> filterMeatListings(uiState.listings, query, preview).size },
                 onApply = { filters = it },
                 onDismiss = { filterOpen = false },
             )
@@ -282,7 +267,14 @@ fun BuyerSearchScreen(
     }
     if (sortOpen) {
         ModalBottomSheet(onDismissRequest = { sortOpen = false }) {
-            SortOptionSheet(current = filters.sort, onSelect = { filters = filters.copy(sort = it) }, onDismiss = { sortOpen = false })
+            SortOptionSheet(
+                current = filters.sort,
+                onSelect = { selected ->
+                    filters = filters.copy(sort = selected)
+                    sortOpen = false
+                },
+                onDismiss = { sortOpen = false },
+            )
         }
     }
 }

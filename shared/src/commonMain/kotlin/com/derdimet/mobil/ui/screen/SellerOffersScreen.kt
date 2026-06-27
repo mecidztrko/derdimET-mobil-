@@ -25,6 +25,7 @@ import com.derdimet.mobil.ui.components.DerdimActionBadge
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimOfferCard
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimStatsRow
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
@@ -136,9 +137,13 @@ fun SellerOffersScreen(marketService: MarketService) {
                 )
             },
             content = {
+                DerdimScreenState(
+                    loading = isLoading,
+                    error = error,
+                    empty = false,
+                    onRetry = { refreshKey++ },
+                ) {
                 when {
-                    isLoading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
                     section == "incoming" -> {
                         val list = incoming.filterOffersByStatus(statusFilter)
                         if (list.isEmpty()) {
@@ -193,6 +198,7 @@ fun SellerOffersScreen(marketService: MarketService) {
                             }
                         }
                     }
+                }
                 }
             },
         )

@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,6 +35,7 @@ import com.derdimet.mobil.model.UserRole
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.theme.DerdimColors
@@ -52,8 +54,9 @@ fun MyPurchasesScreen(
     var shPurchases by remember { mutableStateOf<List<SlaughterhousePurchaseItemDto>>(emptyList()) }
     var shSales by remember { mutableStateOf<List<SlaughterhouseSaleItemDto>>(emptyList()) }
     var shTab by remember { mutableStateOf("purchases") }
+    var refreshKey by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(userRole) {
+    LaunchedEffect(userRole, refreshKey) {
         loading = true
         error = null
         when (userRole) {
@@ -105,15 +108,30 @@ fun MyPurchasesScreen(
                 }
             },
             content = {
-                when {
-                    loading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                    error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                    userRole == UserRole.MEAT_BUYER -> BuyerPurchaseList(buyerPurchases)
-                    userRole == UserRole.ANIMAL_SELLER -> SellerSaleList(sellerSales)
-                    userRole == UserRole.SLAUGHTERHOUSE -> {
-                        if (shTab == "purchases") ShPurchaseList(shPurchases) else ShSaleList(shSales)
+                val isEmpty = when (userRole) {
+                    UserRole.MEAT_BUYER -> buyerPurchases.isEmpty()
+                    UserRole.ANIMAL_SELLER -> sellerSales.isEmpty()
+                    UserRole.SLAUGHTERHOUSE -> {
+                        if (shTab == "purchases") shPurchases.isEmpty() else shSales.isEmpty()
                     }
-                    else -> Text("Kayıt bulunamadı.", color = DerdimColors.MutedForeground)
+                    else -> true
+                }
+                DerdimScreenState(
+                    loading = loading,
+                    error = error,
+                    empty = isEmpty,
+                    emptyTitle = "Henüz kayıt yok",
+                    emptyMessage = "Kabul edilen teklifler ve tamamlanan işlemler burada görünür.",
+                    onRetry = { refreshKey++ },
+                ) {
+                    when (userRole) {
+                        UserRole.MEAT_BUYER -> BuyerPurchaseList(buyerPurchases)
+                        UserRole.ANIMAL_SELLER -> SellerSaleList(sellerSales)
+                        UserRole.SLAUGHTERHOUSE -> {
+                            if (shTab == "purchases") ShPurchaseList(shPurchases) else ShSaleList(shSales)
+                        }
+                        else -> Text("Kayıt bulunamadı.", color = DerdimColors.MutedForeground)
+                    }
                 }
             },
         )

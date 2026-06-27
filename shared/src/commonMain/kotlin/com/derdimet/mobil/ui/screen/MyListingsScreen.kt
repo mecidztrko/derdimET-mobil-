@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +34,7 @@ import com.derdimet.mobil.model.UserRole
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimFilterTabs
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
+import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaSecondaryButton
@@ -53,7 +55,7 @@ fun MyListingsScreen(
     var purchaseRequests by remember { mutableStateOf<List<AnimalPurchaseRequestDto>>(emptyList()) }
     var shTab by remember { mutableStateOf("meat") }
     var actionMessage by remember { mutableStateOf<String?>(null) }
-    var refreshKey by remember { mutableStateOf(0) }
+    var refreshKey by remember { mutableIntStateOf(0) }
     var editingListing by remember { mutableStateOf<SellerAnimalListingDto?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -109,100 +111,107 @@ fun MyListingsScreen(
                 }
             },
             content = {
-            when {
-                loading -> Text("Yükleniyor...", color = DerdimColors.MutedForeground)
-                error != null -> Text(error ?: "Hata", color = MaterialTheme.colorScheme.error)
-                userRole == UserRole.ANIMAL_SELLER -> {
-                    if (sellerListings.isEmpty()) {
-                        Text("Henüz ilanınız yok.", color = DerdimColors.MutedForeground)
-                    } else {
-                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(sellerListings, key = { it.id }) { listing ->
-                                ListingManageCard(
-                                    title = "${listing.type} · ${listing.quantity} adet",
-                                    subtitle = listing.location ?: listing.sellerCity ?: "—",
-                                    price = listing.price?.let { "${formatNumber(it)} ₺" },
-                                    status = listing.status,
-                                    onClose = {
-                                        scope.launch {
-                                            marketService.closeSellerAnimalListing(listing.id)
-                                            actionMessage = "İlan kapatıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                    onReopen = {
-                                        scope.launch {
-                                            marketService.reopenSellerAnimalListing(listing.id)
-                                            actionMessage = "İlan yeniden açıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                    onEdit = if (listing.status == RequestStatus.OPEN) {
-                                        { editingListing = listing }
-                                    } else null,
-                                )
+                val isEmpty = when (userRole) {
+                    UserRole.ANIMAL_SELLER -> sellerListings.isEmpty()
+                    UserRole.SLAUGHTERHOUSE -> {
+                        if (shTab == "meat") meatRequests.isEmpty() else purchaseRequests.isEmpty()
+                    }
+                    else -> true
+                }
+                DerdimScreenState(
+                    loading = loading,
+                    error = error,
+                    empty = isEmpty,
+                    emptyTitle = "Henüz ilanınız yok",
+                    emptyMessage = if (userRole == UserRole.SLAUGHTERHOUSE) "Bu kategoride ilan bulunmuyor." else "Yeni ilan oluşturarak başlayabilirsiniz.",
+                    onRetry = { refreshKey++ },
+                ) {
+                    when (userRole) {
+                        UserRole.ANIMAL_SELLER -> {
+                            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(sellerListings, key = { it.id }) { listing ->
+                                    ListingManageCard(
+                                        title = "${listing.type} · ${listing.quantity} adet",
+                                        subtitle = listing.location ?: listing.sellerCity ?: "—",
+                                        price = listing.price?.let { "${formatNumber(it)} ₺" },
+                                        status = listing.status,
+                                        onClose = {
+                                            scope.launch {
+                                                marketService.closeSellerAnimalListing(listing.id)
+                                                actionMessage = "İlan kapatıldı."
+                                                refreshKey++
+                                            }
+                                        },
+                                        onReopen = {
+                                            scope.launch {
+                                                marketService.reopenSellerAnimalListing(listing.id)
+                                                actionMessage = "İlan yeniden açıldı."
+                                                refreshKey++
+                                            }
+                                        },
+                                        onEdit = if (listing.status == RequestStatus.OPEN) {
+                                            { editingListing = listing }
+                                        } else null,
+                                    )
+                                }
                             }
                         }
+                        UserRole.SLAUGHTERHOUSE -> {
+                            if (shTab == "meat") {
+                                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(meatRequests, key = { it.id }) { item ->
+                                        ListingManageCard(
+                                            title = item.title,
+                                            subtitle = item.meatType,
+                                            price = item.pricePerKg?.let { "${formatNumber(it)} ₺/kg" },
+                                            status = item.status,
+                                            onClose = {
+                                                scope.launch {
+                                                    marketService.closeMeatSaleRequest(item.id)
+                                                    actionMessage = "İlan kapatıldı."
+                                                    refreshKey++
+                                                }
+                                            },
+                                            onReopen = {
+                                                scope.launch {
+                                                    marketService.reopenMeatSaleRequest(item.id)
+                                                    actionMessage = "İlan yeniden açıldı."
+                                                    refreshKey++
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(purchaseRequests, key = { it.id }) { item ->
+                                        ListingManageCard(
+                                            title = item.title,
+                                            subtitle = item.animalCategory?.name ?: "—",
+                                            price = item.expectedWeight?.let { "${formatNumber(it)} kg" },
+                                            status = item.status,
+                                            onClose = {
+                                                scope.launch {
+                                                    marketService.closeAnimalPurchaseRequest(item.id.toLong())
+                                                    actionMessage = "Talep kapatıldı."
+                                                    refreshKey++
+                                                }
+                                            },
+                                            onReopen = {
+                                                scope.launch {
+                                                    marketService.reopenAnimalPurchaseRequest(item.id.toLong())
+                                                    actionMessage = "Talep yeniden açıldı."
+                                                    refreshKey++
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        else -> Text("Bu rol için ilan yönetimi yok.", color = DerdimColors.MutedForeground)
                     }
                 }
-                userRole == UserRole.SLAUGHTERHOUSE -> {
-                    val items = if (shTab == "meat") meatRequests else purchaseRequests
-                    if (items.isEmpty()) {
-                        Text("Bu kategoride ilan yok.", color = DerdimColors.MutedForeground)
-                    } else if (shTab == "meat") {
-                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(meatRequests, key = { it.id }) { item ->
-                                ListingManageCard(
-                                    title = item.title,
-                                    subtitle = item.meatType,
-                                    price = item.pricePerKg?.let { "${formatNumber(it)} ₺/kg" },
-                                    status = item.status,
-                                    onClose = {
-                                        scope.launch {
-                                            marketService.closeMeatSaleRequest(item.id)
-                                            actionMessage = "İlan kapatıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                    onReopen = {
-                                        scope.launch {
-                                            marketService.reopenMeatSaleRequest(item.id)
-                                            actionMessage = "İlan yeniden açıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    } else {
-                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(purchaseRequests, key = { it.id }) { item ->
-                                ListingManageCard(
-                                    title = item.title,
-                                    subtitle = item.animalCategory?.name ?: "—",
-                                    price = item.expectedWeight?.let { "${formatNumber(it)} kg" },
-                                    status = item.status,
-                                    onClose = {
-                                        scope.launch {
-                                            marketService.closeAnimalPurchaseRequest(item.id.toLong())
-                                            actionMessage = "Talep kapatıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                    onReopen = {
-                                        scope.launch {
-                                            marketService.reopenAnimalPurchaseRequest(item.id.toLong())
-                                            actionMessage = "Talep yeniden açıldı."
-                                            refreshKey++
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-                else -> Text("Bu rol için ilan yönetimi yok.", color = DerdimColors.MutedForeground)
-            }
             },
         )
     }
