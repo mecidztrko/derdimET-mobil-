@@ -20,7 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derdimet.mobil.model.BuyerMeatOfferItemDto
 import com.derdimet.mobil.model.ConversationItemDto
+import com.derdimet.mobil.model.OfferEventDto
 import com.derdimet.mobil.model.OfferStatus
+import com.derdimet.mobil.model.ReviseOfferPayload
 import kotlin.math.abs
 import com.derdimet.mobil.service.MarketService
 import com.derdimet.mobil.ui.components.DerdimActionBadge
@@ -32,6 +34,8 @@ import com.derdimet.mobil.ui.components.DerdimStatsRow
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.OfferCardData
+import com.derdimet.mobil.ui.components.OfferHistorySheet
+import com.derdimet.mobil.ui.components.OfferReviseSheet
 import com.derdimet.mobil.ui.components.initialsFrom
 import com.derdimet.mobil.ui.theme.DerdimColors
 
@@ -47,6 +51,58 @@ fun BuyerMyOffersScreen(marketService: MarketService) {
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var chatTargetUserId by remember { mutableStateOf<Long?>(null) }
     var chatLaunchNonce by remember { mutableIntStateOf(0) }
+    var reviseOffer by remember { mutableStateOf<BuyerMeatOfferItemDto?>(null) }
+    var historyOfferId by remember { mutableStateOf<Long?>(null) }
+    var historyEvents by remember { mutableStateOf<List<OfferEventDto>>(emptyList()) }
+    var historyLoading by remember { mutableStateOf(false) }
+    var historyError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(historyOfferId) {
+        val id = historyOfferId ?: return@LaunchedEffect
+        historyLoading = true
+        historyError = null
+        val res = marketService.fetchBuyerMeatOfferHistory(id)
+        if (res.success) historyEvents = res.data.orEmpty() else historyError = res.message ?: "Geçmiş alınamadı"
+        historyLoading = false
+    }
+
+    val reviseTarget = reviseOffer
+    if (reviseTarget != null) {
+        OfferReviseSheet(
+            title = reviseTarget.title ?: "Et ilanı",
+            quantityLabel = "Miktar (kg)",
+            showQuantityAsInt = false,
+            initialPrice = reviseTarget.pricePerKg,
+            initialQuantity = reviseTarget.quantity,
+            initialNote = reviseTarget.note,
+            onDismiss = { reviseOffer = null },
+            onSubmit = { price, qty, note ->
+                val res = marketService.reviseBuyerMeatOffer(
+                    reviseTarget.offerId,
+                    ReviseOfferPayload(pricePerKg = price, quantity = qty, note = note),
+                )
+                if (res.success) {
+                    reviseOffer = null
+                    refreshKey++
+                    Pair(true, null)
+                } else {
+                    Pair(false, res.message)
+                }
+            },
+        )
+    }
+
+    if (historyOfferId != null) {
+        OfferHistorySheet(
+            events = historyEvents,
+            loading = historyLoading,
+            error = historyError,
+            onDismiss = {
+                historyOfferId = null
+                historyEvents = emptyList()
+            },
+        )
+    }
 
     LaunchedEffect(actingOfferId, actingOfferNonce) {
         val id = actingOfferId ?: return@LaunchedEffect
@@ -167,6 +223,10 @@ fun BuyerMyOffersScreen(marketService: MarketService) {
                                         chatLaunchNonce++
                                     }
                                 },
+                                onRevise = if (item.status == OfferStatus.PENDING) {
+                                    { reviseOffer = item }
+                                } else null,
+                                onHistory = { historyOfferId = item.offerId },
                             )
                         }
                     }
@@ -177,17 +237,27 @@ fun BuyerMyOffersScreen(marketService: MarketService) {
 
 }
 
-private fun BuyerMeatOfferItemDto.toOfferCardData(index: Int) = OfferCardData(
-    id = offerId,
-    listingTitle = title ?: "Et ilanı",
-    partyName = slaughterhouseName ?: "Kesimhane",
-    partyCompany = "Gönderilen teklif",
-    partyInitials = initialsFrom(slaughterhouseName),
-    offerAmount = pricePerKg,
-    originalPrice = null,
-    quantityLabel = quantity?.let { "$it kg" },
-    status = status,
-    dateLabel = createdAt.take(10),
-    city = null,
-    index = index,
+private fun BuyerMeatOfferItemDto.toOfferCardData(index: Int): OfferCardData {
+    val (revisionLabel, expiryLabel) = offerMetaLabels(revisionNumber, expiresAt)
+    return OfferCardData(
+        id = offerId,
+        listingTitle = title ?: "Et ilanı",
+        partyName = slaughterhouseName ?: "Kesimhane",
+        partyCompany = "Gönderilen teklif",
+        partyInitials = initialsFrom(slaughterhouseName),
+        offerAmount = pricePerKg,
+        originalPrice = null,
+        quantityLabel = quantity?.let { "$it kg" },
+        status = status,
+        dateLabel = createdAt.take(10),
+        city = null,
+        revisionLabel = revisionLabel,
+        expiryLabel = expiryLabel,
+        index = index,
+    )
+}
+
+internal fun offerMetaLabels(revisionNumber: Int?, expiresAt: String?): Pair<String?, String?> = Pair(
+    revisionNumber?.let { "Revizyon $it" },
+    expiresAt?.let { "Son: ${it.take(10)}" },
 )

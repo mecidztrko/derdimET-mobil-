@@ -94,11 +94,19 @@ class MarketService(private val apiService: ApiService) {
         category: String? = null,
         q: String? = null,
         sort: String = "newest",
+        quantityMin: Int? = null,
+        quantityMax: Int? = null,
+        expectedWeightMin: Double? = null,
+        expectedWeightMax: Double? = null,
     ): ApiResponse<List<AnimalPurchaseRequestDto>> {
         val endpoint = buildString {
             append("/api/seller/animal-purchase-requests?sort=").append(sort)
             if (!q.isNullOrBlank()) append("&q=").append(q.trim())
             if (!category.isNullOrBlank()) append("&category=").append(category)
+            if (quantityMin != null) append("&quantityMin=").append(quantityMin)
+            if (quantityMax != null) append("&quantityMax=").append(quantityMax)
+            if (expectedWeightMin != null) append("&expectedWeightMin=").append(expectedWeightMin)
+            if (expectedWeightMax != null) append("&expectedWeightMax=").append(expectedWeightMax)
         }
         return apiService.get(endpoint)
     }
@@ -275,6 +283,10 @@ class MarketService(private val apiService: ApiService) {
         return apiService.post("/api/seller/listing-offers/$offerId/reject", body = mapOf<String, String>())
     }
 
+    suspend fun fetchSellerIncomingListingOfferHistory(offerId: Long): ApiResponse<List<OfferEventDto>> {
+        return apiService.get("/api/seller/listing-offers/$offerId/history")
+    }
+
     suspend fun fetchConversationOffers(conversationId: Long): ApiResponse<List<ConversationOfferDto>> {
         return apiService.get("/api/messaging/conversations/$conversationId/offers")
     }
@@ -289,6 +301,66 @@ class MarketService(private val apiService: ApiService) {
 
     suspend fun fetchNotificationSummary(): ApiResponse<NotificationSummaryDto> {
         return apiService.get("/api/notifications/summary")
+    }
+
+    suspend fun fetchNotificationInbox(
+        type: String? = null,
+        unreadOnly: Boolean = false,
+    ): ApiResponse<List<NotificationInboxItemDto>> {
+        val endpoint = buildString {
+            append("/api/notifications/inbox")
+            val params = mutableListOf<String>()
+            if (!type.isNullOrBlank()) params.add("type=$type")
+            if (unreadOnly) params.add("unreadOnly=true")
+            if (params.isNotEmpty()) append("?").append(params.joinToString("&"))
+        }
+        return apiService.get(endpoint)
+    }
+
+    suspend fun markNotificationRead(id: Long): ApiResponse<Unit> {
+        return apiService.postEmpty("/api/notifications/inbox/$id/read")
+    }
+
+    suspend fun markAllNotificationsRead(): ApiResponse<Map<String, Int>> {
+        return apiService.postEmpty("/api/notifications/inbox/read-all")
+    }
+
+    suspend fun reviseBuyerMeatOffer(offerId: Long, payload: ReviseOfferPayload): ApiResponse<BuyerMeatOfferItemDto> {
+        return apiService.patch("/api/buyer/meat-offers/$offerId/revise", payload)
+    }
+
+    suspend fun fetchBuyerMeatOfferHistory(offerId: Long): ApiResponse<List<OfferEventDto>> {
+        return apiService.get("/api/buyer/meat-offers/$offerId/history")
+    }
+
+    suspend fun reviseSlaughterhouseListingOffer(
+        offerId: Long,
+        payload: ReviseOfferPayload,
+    ): ApiResponse<SlaughterhouseListingOfferDto> {
+        return apiService.patch("/api/slaughterhouse/offers/$offerId/revise", payload)
+    }
+
+    suspend fun fetchSlaughterhouseListingOfferHistory(offerId: Long): ApiResponse<List<OfferEventDto>> {
+        return apiService.get("/api/slaughterhouse/offers/$offerId/history")
+    }
+
+    suspend fun reviseSellerAnimalOffer(
+        offerId: Long,
+        payload: ReviseOfferPayload,
+    ): ApiResponse<SellerAnimalOfferItemDto> {
+        return apiService.patch("/api/seller/animal-offers/$offerId/revise", payload)
+    }
+
+    suspend fun fetchSellerAnimalOfferHistory(offerId: Long): ApiResponse<List<OfferEventDto>> {
+        return apiService.get("/api/seller/animal-offers/$offerId/history")
+    }
+
+    suspend fun confirmOrderPayment(orderId: Long): ApiResponse<BuyerPurchaseItemDto> {
+        return apiService.postEmpty("/api/buyer/orders/$orderId/confirm-payment")
+    }
+
+    suspend fun completeOrder(orderId: Long): ApiResponse<BuyerPurchaseItemDto> {
+        return apiService.postEmpty("/api/buyer/orders/$orderId/complete")
     }
 
     suspend fun closeSellerAnimalListing(listingId: Long): ApiResponse<SellerAnimalListingDto> {

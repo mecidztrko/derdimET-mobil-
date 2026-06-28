@@ -347,13 +347,50 @@ fun SellerSearchScreen(
                 Text(text = "Sıralama", fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     FigmaSecondaryButton("En yeni", onClick = { filters = filters.copy(sort = "newest") }, modifier = Modifier.weight(1f))
-                    FigmaSecondaryButton("Eski", onClick = { filters = filters.copy(sort = "oldest") }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Adet ↑", onClick = { filters = filters.copy(sort = "quantityasc") }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Adet ↓", onClick = { filters = filters.copy(sort = "quantitydesc") }, modifier = Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FigmaSecondaryButton("Ağırlık ↑", onClick = { filters = filters.copy(sort = "weightasc") }, modifier = Modifier.weight(1f))
+                    FigmaSecondaryButton("Ağırlık ↓", onClick = { filters = filters.copy(sort = "weightdesc") }, modifier = Modifier.weight(1f))
                 }
                 Text(text = "Kategori", fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     FigmaSecondaryButton("Tümü", onClick = { filters = filters.copy(category = null) }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Küçükbaş", onClick = { filters = filters.copy(category = AnimalCategory.KUCUKBAS) }, modifier = Modifier.weight(1f))
                     FigmaSecondaryButton("Büyükbaş", onClick = { filters = filters.copy(category = AnimalCategory.BUYUKBAS) }, modifier = Modifier.weight(1f))
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = filters.quantityMin,
+                        onValueChange = { filters = filters.copy(quantityMin = it) },
+                        label = { Text("Adet min") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = filters.quantityMax,
+                        onValueChange = { filters = filters.copy(quantityMax = it) },
+                        label = { Text("Adet max") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = filters.weightMin,
+                        onValueChange = { filters = filters.copy(weightMin = it) },
+                        label = { Text("Ağırlık min (kg)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = filters.weightMax,
+                        onValueChange = { filters = filters.copy(weightMax = it) },
+                        label = { Text("Ağırlık max (kg)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FigmaSecondaryButton(

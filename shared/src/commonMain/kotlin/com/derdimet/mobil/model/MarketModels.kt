@@ -12,6 +12,18 @@ enum class OfferStatus { PENDING, ACCEPTED, REJECTED }
 enum class AnimalCategory { KUCUKBAS, BUYUKBAS }
 
 @Serializable
+enum class ListingClosedReason { MANUAL, SOLD, EXPIRED, CANCELLED }
+
+@Serializable
+enum class NotificationType { OFFER, MESSAGE, LISTING, PAYMENT, SYSTEM }
+
+@Serializable
+enum class OfferEventType { CREATED, REVISED }
+
+@Serializable
+enum class OfferKind { MEAT, LISTING, ANIMAL }
+
+@Serializable
 data class AnimalPurchaseRequestDto(
     val id: Int,
     val slaughterhouseId: Long? = null,
@@ -24,6 +36,8 @@ data class AnimalPurchaseRequestDto(
     val expectedWeight: Double? = null,
     val description: String? = null,
     val status: RequestStatus,
+    val closedReason: ListingClosedReason? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
     val isFavoritedByMe: Boolean? = null,
 )
@@ -36,7 +50,29 @@ data class SellerAnimalOfferItemDto(
     val animalCount: Int? = null,
     val note: String? = null,
     val status: OfferStatus,
+    val revisionNumber: Int? = null,
+    val expiresAt: String? = null,
     val createdAt: String
+)
+
+@Serializable
+data class ReviseOfferPayload(
+    val pricePerKg: Double,
+    val quantity: Double? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class OfferEventDto(
+    val id: Long,
+    val offerKind: OfferKind,
+    val offerId: Long,
+    val eventType: OfferEventType,
+    val pricePerKg: Double? = null,
+    val quantity: Double? = null,
+    val note: String? = null,
+    val revisionNumber: Int? = null,
+    val createdAt: String,
 )
 
 @Serializable
@@ -84,6 +120,8 @@ data class MeatSaleRequestDto(
     val description: String? = null,
     val imageUrls: List<String> = emptyList(),
     val status: RequestStatus,
+    val closedReason: ListingClosedReason? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
     val isFavoritedByMe: Boolean? = null,
 )
@@ -122,6 +160,8 @@ data class BuyerMeatOfferItemDto(
     val quantity: Double? = null,
     val note: String? = null,
     val status: OfferStatus,
+    val revisionNumber: Int? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
 )
 
@@ -235,6 +275,8 @@ data class SellerAnimalListingDto(
     val description: String? = null,
     val imageUrls: List<String> = emptyList(),
     val status: RequestStatus,
+    val closedReason: ListingClosedReason? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
     val isFavoritedByMe: Boolean? = null,
 )
@@ -246,6 +288,17 @@ data class NotificationSummaryDto(
     val pendingPurchaseOffers: Int = 0,
     val unreadMessages: Int = 0,
     val primaryLink: String? = null,
+)
+
+@Serializable
+data class NotificationInboxItemDto(
+    val id: Long,
+    val type: NotificationType,
+    val title: String,
+    val body: String? = null,
+    val link: String? = null,
+    val read: Boolean,
+    val createdAt: String,
 )
 
 @Serializable
@@ -320,6 +373,8 @@ data class SlaughterhouseListingOfferDto(
     val quantity: Int? = null,
     val note: String? = null,
     val status: OfferStatus,
+    val revisionNumber: Int? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
 )
 
@@ -434,6 +489,8 @@ data class SellerIncomingListingOfferDto(
     val quantity: Int? = null,
     val note: String? = null,
     val status: OfferStatus,
+    val revisionNumber: Int? = null,
+    val expiresAt: String? = null,
     val createdAt: String,
 )
 

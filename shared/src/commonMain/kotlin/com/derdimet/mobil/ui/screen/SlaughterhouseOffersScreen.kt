@@ -18,7 +18,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.derdimet.mobil.model.ConversationItemDto
+import com.derdimet.mobil.model.OfferEventDto
 import com.derdimet.mobil.model.OfferStatus
+import com.derdimet.mobil.model.ReviseOfferPayload
 import com.derdimet.mobil.model.SlaughterhouseIncomingMeatOfferDto
 import com.derdimet.mobil.model.SlaughterhouseListingOfferDto
 import com.derdimet.mobil.service.MarketService
@@ -31,6 +33,8 @@ import com.derdimet.mobil.ui.components.DerdimStatsRow
 import com.derdimet.mobil.ui.components.DerdimTopBar
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.components.OfferCardData
+import com.derdimet.mobil.ui.components.OfferHistorySheet
+import com.derdimet.mobil.ui.components.OfferReviseSheet
 import com.derdimet.mobil.ui.components.initialsFrom
 import com.derdimet.mobil.ui.theme.DerdimColors
 import kotlin.math.abs
@@ -49,6 +53,58 @@ fun SlaughterhouseOffersScreen(marketService: MarketService) {
     var selectedConversation by remember { mutableStateOf<ConversationItemDto?>(null) }
     var chatTargetUserId by remember { mutableStateOf<Long?>(null) }
     var chatLaunchNonce by remember { mutableIntStateOf(0) }
+    var reviseOffer by remember { mutableStateOf<SlaughterhouseListingOfferDto?>(null) }
+    var historyOfferId by remember { mutableStateOf<Long?>(null) }
+    var historyEvents by remember { mutableStateOf<List<OfferEventDto>>(emptyList()) }
+    var historyLoading by remember { mutableStateOf(false) }
+    var historyError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(historyOfferId) {
+        val id = historyOfferId ?: return@LaunchedEffect
+        historyLoading = true
+        historyError = null
+        val res = marketService.fetchSlaughterhouseListingOfferHistory(id)
+        if (res.success) historyEvents = res.data.orEmpty() else historyError = res.message ?: "Geçmiş alınamadı"
+        historyLoading = false
+    }
+
+    val reviseTarget = reviseOffer
+    if (reviseTarget != null) {
+        OfferReviseSheet(
+            title = "${reviseTarget.listingType ?: "Hayvan"} ilanı",
+            quantityLabel = "Adet",
+            showQuantityAsInt = true,
+            initialPrice = reviseTarget.pricePerKg,
+            initialQuantity = reviseTarget.quantity?.toDouble(),
+            initialNote = reviseTarget.note,
+            onDismiss = { reviseOffer = null },
+            onSubmit = { price, qty, note ->
+                val res = marketService.reviseSlaughterhouseListingOffer(
+                    reviseTarget.offerId,
+                    ReviseOfferPayload(pricePerKg = price, quantity = qty, note = note),
+                )
+                if (res.success) {
+                    reviseOffer = null
+                    refreshKey++
+                    Pair(true, null)
+                } else {
+                    Pair(false, res.message)
+                }
+            },
+        )
+    }
+
+    if (historyOfferId != null) {
+        OfferHistorySheet(
+            events = historyEvents,
+            loading = historyLoading,
+            error = historyError,
+            onDismiss = {
+                historyOfferId = null
+                historyEvents = emptyList()
+            },
+        )
+    }
 
     LaunchedEffect(chatTargetUserId, chatLaunchNonce) {
         val otherId = chatTargetUserId ?: return@LaunchedEffect
@@ -193,6 +249,10 @@ fun SlaughterhouseOffersScreen(marketService: MarketService) {
                                                 chatLaunchNonce++
                                             }
                                         },
+                                        onRevise = if (item.status == OfferStatus.PENDING) {
+                                            { reviseOffer = item }
+                                        } else null,
+                                        onHistory = { historyOfferId = item.offerId },
                                     )
                                 }
                             }
@@ -235,17 +295,22 @@ private fun SlaughterhouseIncomingMeatOfferDto.toOfferCardData(index: Int) = Off
     index = index,
 )
 
-private fun SlaughterhouseListingOfferDto.toOfferCardData(index: Int) = OfferCardData(
-    id = offerId,
-    listingTitle = "${listingType ?: "Hayvan"} · ${listingCategory ?: ""}".trim(),
-    partyName = sellerName ?: "Satıcı",
-    partyCompany = null,
-    partyInitials = initialsFrom(sellerName),
-    offerAmount = pricePerKg,
-    originalPrice = null,
-    quantityLabel = quantity?.let { "$it adet" },
-    status = status,
-    dateLabel = createdAt.take(10),
-    city = null,
-    index = index,
-)
+private fun SlaughterhouseListingOfferDto.toOfferCardData(index: Int): OfferCardData {
+    val (revisionLabel, expiryLabel) = offerMetaLabels(revisionNumber, expiresAt)
+    return OfferCardData(
+        id = offerId,
+        listingTitle = "${listingType ?: "Hayvan"} · ${listingCategory ?: ""}".trim(),
+        partyName = sellerName ?: "Satıcı",
+        partyCompany = null,
+        partyInitials = initialsFrom(sellerName),
+        offerAmount = pricePerKg,
+        originalPrice = null,
+        quantityLabel = quantity?.let { "$it adet" },
+        status = status,
+        dateLabel = createdAt.take(10),
+        city = null,
+        revisionLabel = revisionLabel,
+        expiryLabel = expiryLabel,
+        index = index,
+    )
+}

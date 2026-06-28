@@ -19,13 +19,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import com.derdimet.mobil.model.BuyerPurchaseItemDto
 import com.derdimet.mobil.model.OfferStatus
 import com.derdimet.mobil.model.SellerSaleItemDto
@@ -37,6 +39,7 @@ import com.derdimet.mobil.ui.components.DerdimFilterTabs
 import com.derdimet.mobil.ui.components.DerdimListScreenBody
 import com.derdimet.mobil.ui.components.DerdimScreenState
 import com.derdimet.mobil.ui.components.DerdimTopBar
+import com.derdimet.mobil.ui.components.FigmaPrimaryButton
 import com.derdimet.mobil.ui.components.FigmaStyle
 import com.derdimet.mobil.ui.theme.DerdimColors
 import com.derdimet.mobil.util.formatNumber
@@ -125,7 +128,11 @@ fun MyPurchasesScreen(
                     onRetry = { refreshKey++ },
                 ) {
                     when (userRole) {
-                        UserRole.MEAT_BUYER -> BuyerPurchaseList(buyerPurchases)
+                        UserRole.MEAT_BUYER -> BuyerPurchaseList(
+                            items = buyerPurchases,
+                            marketService = marketService,
+                            onRefresh = { refreshKey++ },
+                        )
                         UserRole.ANIMAL_SELLER -> SellerSaleList(sellerSales)
                         UserRole.SLAUGHTERHOUSE -> {
                             if (shTab == "purchases") ShPurchaseList(shPurchases) else ShSaleList(shSales)
@@ -139,12 +146,22 @@ fun MyPurchasesScreen(
 }
 
 @Composable
-private fun BuyerPurchaseList(items: List<BuyerPurchaseItemDto>) {
+private fun BuyerPurchaseList(
+    items: List<BuyerPurchaseItemDto>,
+    marketService: MarketService,
+    onRefresh: () -> Unit,
+) {
+    var actingOrderId by remember { mutableStateOf<Long?>(null) }
+    val scope = rememberCoroutineScope()
+
     if (items.isEmpty()) {
         EmptyPurchaseHint("Henüz kabul edilmiş alışveriş yok.")
     } else {
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items, key = { it.orderId ?: it.meatOfferId ?: it.createdAt.hashCode().toLong() }) { item ->
+                val canPay = item.orderId != null &&
+                    (item.status.equals("PAYMENT_PENDING", true) || item.status.equals("PENDING", true))
+                val canComplete = item.orderId != null && item.status.equals("PAYMENT_CONFIRMED", true)
                 PurchaseDetailCard(
                     title = item.saleTitle ?: "Et ilanı",
                     subtitle = listOfNotNull(
@@ -152,8 +169,16 @@ private fun BuyerPurchaseList(items: List<BuyerPurchaseItemDto>) {
                         item.meatType,
                     ).joinToString(" · "),
                     statusLabel = purchaseStatusLabel(item.status),
-                    statusColor = DerdimColors.Green700,
-                    statusBg = DerdimColors.Green50,
+                    statusColor = when {
+                        canPay -> DerdimColors.Amber700
+                        canComplete -> DerdimColors.Primary
+                        else -> DerdimColors.Green700
+                    },
+                    statusBg = when {
+                        canPay -> DerdimColors.Amber50
+                        canComplete -> DerdimColors.Primary.copy(0.1f)
+                        else -> DerdimColors.Green50
+                    },
                     detailRows = listOfNotNull(
                         item.pricePerKg?.let { "Teklif fiyatı" to "${formatNumber(it)} ₺/kg" },
                         item.quantity?.let { "Miktar" to "${formatNumber(it)} kg" },
@@ -161,6 +186,38 @@ private fun BuyerPurchaseList(items: List<BuyerPurchaseItemDto>) {
                         item.saleRequestId?.let { "İlan no" to "#$it" },
                     ),
                     date = item.createdAt.take(10),
+                    actions = {
+                        if (canPay && item.orderId != null) {
+                            FigmaPrimaryButton(
+                                text = if (actingOrderId == item.orderId) "İşleniyor..." else "Ödemeyi onayla (mock)",
+                                enabled = actingOrderId == null,
+                                onClick = {
+                                    val orderId = item.orderId ?: return@FigmaPrimaryButton
+                                    scope.launch {
+                                        actingOrderId = orderId
+                                        marketService.confirmOrderPayment(orderId)
+                                        actingOrderId = null
+                                        onRefresh()
+                                    }
+                                },
+                            )
+                        }
+                        if (canComplete && item.orderId != null) {
+                            FigmaPrimaryButton(
+                                text = if (actingOrderId == item.orderId) "İşleniyor..." else "Teslimatı tamamla",
+                                enabled = actingOrderId == null,
+                                onClick = {
+                                    val orderId = item.orderId ?: return@FigmaPrimaryButton
+                                    scope.launch {
+                                        actingOrderId = orderId
+                                        marketService.completeOrder(orderId)
+                                        actingOrderId = null
+                                        onRefresh()
+                                    }
+                                },
+                            )
+                        }
+                    },
                 )
             }
         }
@@ -261,6 +318,7 @@ private fun PurchaseDetailCard(
     statusBg: Color,
     detailRows: List<Pair<String, String>>,
     date: String,
+    actions: @Composable (() -> Unit)? = null,
 ) {
     Column(
         Modifier
@@ -294,6 +352,7 @@ private fun PurchaseDetailCard(
             }
         }
         Text(date, fontSize = 11.sp, color = DerdimColors.MutedForeground)
+        actions?.invoke()
     }
 }
 
@@ -303,8 +362,9 @@ private fun EmptyPurchaseHint(message: String) {
 }
 
 private fun purchaseStatusLabel(status: String): String = when (status.uppercase()) {
-    "COMPLETED", "ACCEPTED" -> "Kabul"
-    "PENDING" -> "Bekliyor"
+    "COMPLETED", "ACCEPTED" -> "Tamamlandı"
+    "PAYMENT_PENDING", "PENDING" -> "Ödeme bekliyor"
+    "PAYMENT_CONFIRMED" -> "Ödeme onaylandı"
     "CANCELLED", "REJECTED" -> "İptal"
     else -> status
 }

@@ -14,6 +14,10 @@ import kotlinx.coroutines.launch
 data class SellerSearchFilters(
     val sort: String = "newest",
     val category: AnimalCategory? = null,
+    val quantityMin: String = "",
+    val quantityMax: String = "",
+    val weightMin: String = "",
+    val weightMax: String = "",
 )
 
 data class SellerSearchUiState(
@@ -67,6 +71,10 @@ class SellerSearchViewModel(
                     category = filters.category?.name,
                     q = q,
                     sort = filters.sort,
+                    quantityMin = parseInt(filters.quantityMin),
+                    quantityMax = parseInt(filters.quantityMax),
+                    expectedWeightMin = parseDouble(filters.weightMin),
+                    expectedWeightMax = parseDouble(filters.weightMax),
                 )
                 if (res.success) {
                     val data = res.data.orEmpty()
@@ -110,4 +118,8 @@ class SellerSearchViewModel(
             )
         }
     }
+
+    private fun parseInt(value: String): Int? = value.trim().toIntOrNull()
+
+    private fun parseDouble(value: String): Double? = value.trim().replace(',', '.').toDoubleOrNull()
 }

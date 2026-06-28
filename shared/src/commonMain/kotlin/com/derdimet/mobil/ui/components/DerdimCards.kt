@@ -177,6 +177,8 @@ data class OfferCardData(
     val status: OfferStatus,
     val dateLabel: String,
     val city: String?,
+    val revisionLabel: String? = null,
+    val expiryLabel: String? = null,
     val index: Int = 0,
 )
 
@@ -187,6 +189,8 @@ fun DerdimOfferCard(
     onAccept: (() -> Unit)? = null,
     onReject: (() -> Unit)? = null,
     onMessage: (() -> Unit)? = null,
+    onRevise: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null,
 ) {
     val cfg = when (offer.status) {
         OfferStatus.PENDING -> Triple(DerdimColors.Amber400, DerdimColors.Amber50, DerdimColors.Amber700)
@@ -259,7 +263,11 @@ fun DerdimOfferCard(
                     Icon(Icons.Default.Schedule, null, tint = DerdimColors.MutedForeground, modifier = Modifier.size(14.dp))
                     Text("${offer.dateLabel}${offer.city?.let { " · $it" } ?: ""}", fontSize = 11.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(start = 4.dp))
                 }
-                if (showActions && (onAccept != null || onReject != null || onMessage != null)) {
+                val meta = listOfNotNull(offer.revisionLabel, offer.expiryLabel).joinToString(" · ")
+                if (meta.isNotBlank()) {
+                    Text(meta, fontSize = 11.sp, color = DerdimColors.MutedForeground, modifier = Modifier.padding(top = 4.dp))
+                }
+                if (showActions && (onAccept != null || onReject != null || onMessage != null || onRevise != null || onHistory != null)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -268,6 +276,24 @@ fun DerdimOfferCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     ) {
                         if (offer.status == OfferStatus.PENDING) {
+                            onHistory?.let { history ->
+                                OfferActionChip(
+                                    label = "Geçmiş",
+                                    onClick = history,
+                                    background = DerdimColors.Muted,
+                                    border = DerdimColors.Border,
+                                    textColor = DerdimColors.Foreground,
+                                )
+                            }
+                            onRevise?.let { revise ->
+                                OfferActionChip(
+                                    label = "Revize",
+                                    onClick = revise,
+                                    background = DerdimColors.Primary.copy(0.08f),
+                                    border = DerdimColors.Primary.copy(0.3f),
+                                    textColor = DerdimColors.Primary,
+                                )
+                            }
                             onReject?.let { reject ->
                                 OfferActionChip(
                                     label = "Reddet",
